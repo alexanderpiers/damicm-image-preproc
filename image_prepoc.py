@@ -20,7 +20,8 @@ def main(argv):
     parser.add_argument(
         "-f",
         "--filenames",
-        default="Img_*.fits",
+        nargs="*",
+        default=["Img_*.fits"],
         help="Processes all filese that match the string.",
     )
     parser.add_argument(
@@ -29,28 +30,36 @@ def main(argv):
         default="img_preproc_out.txt",
         help="Output file for preprocessing information.",
     )
+    parser.add_argument(
+    	"-d", 
+    	"--directory", 
+    	default=os.getcwd(),
+    	help="Directory to search for files in ")
+
 
     commandArgs = parser.parse_args()
 
     print(commandArgs)
 
-    # Takes the directory from --filename (or uses current dir if none is provided) to get all files in dir
-    filepath, filepattern = os.path.split(commandArgs.filenames)
-    if not filepath:
-        filepath = os.getcwd()
-    print(filepath)
-    print(filepattern)
-    # Get a list of files that match with --filenames
+    # Get a list of files in the directory
+    filepath = commandArgs.directory
     files = [
         f for f in os.listdir(filepath) if os.path.isfile(os.path.join(filepath, f))
     ]
 
-    # Define regex matching
-    regexPattern = re.compile(filepattern)
-    files2Process = list(filter(regexPattern.match, files))
+    files2Process = []
+
+    # Iterate over all the file strings passed to find matches
+    for fn in commandArgs.filenames:
+		# Define regex matching
+    	regexPattern = re.compile(fn)
+    	files2Process.extend(list(filter(regexPattern.match, files)))
+    
+
     files2Process.sort()
+    print("Processing: ")
     for fp in files2Process:
-        print(os.path.join(filepath, fp))
+        print("\t" + os.path.join(filepath, fp))
 
     return
 
