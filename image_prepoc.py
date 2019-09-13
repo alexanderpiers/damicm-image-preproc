@@ -38,7 +38,6 @@ def main(argv):
 
 
     commandArgs = parser.parse_args()
-
     print(commandArgs)
 
     # Get a list of files in the directory
