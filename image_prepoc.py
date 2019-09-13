@@ -35,10 +35,11 @@ def main(argv):
     print(commandArgs)
 
     # Takes the directory from --filename (or uses current dir if none is provided) to get all files in dir
-    filepath, filepattern = os.split(commandArgs.filenames)
+    filepath, filepattern = os.path.split(commandArgs.filenames)
     if not filepath:
         filepath = os.getcwd()
-
+    print(filepath)
+    print(filepattern)
     # Get a list of files that match with --filenames
     files = [
         f for f in os.listdir(filepath) if os.path.isfile(os.path.join(filepath, f))
@@ -47,7 +48,7 @@ def main(argv):
     # Define regex matching
     regexPattern = re.compile(filepattern)
     files2Process = list(filter(regexPattern.match, files))
-
+    files2Process.sort()
     for fp in files2Process:
         print(os.path.join(filepath, fp))
 
