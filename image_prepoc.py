@@ -85,14 +85,21 @@ def main(argv):
     	"--directory", 
     	default=os.getcwd(),
     	help="Directory to search for files in ")
+    parser.add_argument(
+        "-a",
+        "--all",
+        help="Processes all images that are matched (including ones that have previously been processed)")
 
 
     commandArgs = parser.parse_args()
     print(commandArgs)
 
-    # Get a list of files in the directory
+    # Set command line arguments
     filepath = commandArgs.directory
     outfile = commandArgs.output
+    processAll = commandArgs.all
+
+    # Get all files in the directory
     files = [
         f for f in os.listdir(filepath) if os.path.isfile(os.path.join(filepath, f))
     ]
@@ -119,10 +126,14 @@ def main(argv):
     processHeader = []
     print("Processing: ")
     for fp in files2Process:
+        print("\t" + os.path.join(filepath, fp), end="")
         # Check to make sure the file has not already been processed
-        if not(fp in existingImgFiles):
-            print("\t" + os.path.join(filepath, fp))
+        if not(fp in existingImgFiles) or processAll:
             processedImgFiles.append(analysisOutput(fp, header=processHeader))
+            print( (" ....processed\n", " ....reprocessed\n") [processAll], end="")
+        else:
+            print( " ....skipped\n", end="")
+
 
 
     # Appends new images to the output file or creates new file if doesn't exist
