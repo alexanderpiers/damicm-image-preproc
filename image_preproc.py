@@ -62,8 +62,10 @@ def sortAlphaNumeric(x):
 def main(argv):
     """
 	Command line entry into damic-m image preprocessing code. See printHelp() for use details
-		-f - input filenames. Takes a single string and process any files that match the string
-		-o - output file destination fo the results of the processing
+		-f - input filenames. Takes a list of strings (command line wildcards) or regex pattern to match. Default is "Img_\\d+.fits"
+		-o - output file destination fo the results of the processing. Default is "img_preproc_out.txt"
+        -d - directory to search for images and write output to. Default is the current working directory
+        -a - flag to reprocess all matched files (even if the results already exist in the output file)
 	"""
 
     # Define the parser object
@@ -76,7 +78,7 @@ def main(argv):
         "-f",
         "--filenames",
         nargs="*",
-        default=["Img_*.fits"],
+        default=["Img_\\d+.fits"],
         help="Processes all filese that match the string.",
     )
     parser.add_argument(
@@ -93,7 +95,7 @@ def main(argv):
     parser.add_argument(
         "-a",
         "--all",
-	action="store_true",
+	    action="store_true",
         help="Processes all images that are matched (including ones that have previously been processed)")
 
 
