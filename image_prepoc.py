@@ -114,8 +114,9 @@ def main(argv):
     files2Process.sort()
 
     # Check what images have already been analyzed and written to file so we do not need to recompute
+    outfileFullPath = os.path.join(filepath, outfile)
     try:
-        with open(outfile) as of:
+        with open(outfileFullPath) as of:
             print("Reading existing processed images")
             existingImgFiles =  [line.split()[0] for line in of]
     except FileNotFoundError:
@@ -137,10 +138,10 @@ def main(argv):
 
 
     # Appends new images to the output file or creates new file if doesn't exist
-    if os.path.isfile(outfile):
-        of = open(outfile, "a")
+    if os.path.isfile(outfileFullPath):
+        of = open(outfileFullPath, "a")
     else:
-        of = open(outfile, "w+")
+        of = open(outfileFullPath, "w+")
         try:
             of.write(processedImgFiles[0].headerString)
         except IndexError:
