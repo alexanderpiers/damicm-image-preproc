@@ -6,7 +6,7 @@ Information on the image preprocessing and intial characterization of DAMIC-M sk
 
 This code uses Python3 and the packages listed in requirements.txt to run. It is recommended that you use a virtualenv and run `pip install -r requirements.txt` to get all the necessary packages.
 
-##Usage
+## Usage
 
 This code is intended to process images stored in fits files to make a quick evaluation on the quality of the image. The usage is:
 
