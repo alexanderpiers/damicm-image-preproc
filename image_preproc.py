@@ -53,6 +53,11 @@ class analysisOutput(object):
         outstr += "\n"
         return outstr
 
+def sortAlphaNumeric(x):
+    """ Sorts an iterable of strings of alphanumeric data in the expected human way """
+    convertToInt = lambda text: int(text) if text.isdigit() else text
+    alphanumericKey = lambda key: [convertToInt(c) for c in re.split('([0-9]+)', key)]
+    return sorted(x, key=alphanumericKey)
 
 def main(argv):
     """
@@ -111,7 +116,7 @@ def main(argv):
 		# Define regex matching
     	regexPattern = re.compile(fn)
     	files2Process.extend(list(filter(regexPattern.match, files)))
-    files2Process.sort()
+    files2Process = sortAlphaNumeric(files2Process)
 
     # Check what images have already been analyzed and written to file so we do not need to recompute
     outfileFullPath = os.path.join(filepath, outfile)
