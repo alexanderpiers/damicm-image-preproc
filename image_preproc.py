@@ -93,6 +93,7 @@ def main(argv):
     parser.add_argument(
         "-a",
         "--all",
+	action="store_true",
         help="Processes all images that are matched (including ones that have previously been processed)")
 
 
@@ -116,6 +117,7 @@ def main(argv):
 		# Define regex matching
     	regexPattern = re.compile(fn)
     	files2Process.extend(list(filter(regexPattern.match, files)))
+
     files2Process = sortAlphaNumeric(files2Process)
 
     # Check what images have already been analyzed and written to file so we do not need to recompute
@@ -143,7 +145,7 @@ def main(argv):
 
 
     # Appends new images to the output file or creates new file if doesn't exist
-    if os.path.isfile(outfileFullPath):
+    if os.path.isfile(outfileFullPath) and not(processAll):
         of = open(outfileFullPath, "a")
     else:
         of = open(outfileFullPath, "w+")
