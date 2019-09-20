@@ -20,7 +20,7 @@ class analysisOutput(object):
         self.headerString = ""
 
         # Create a header string for writing out to file
-        self.headerString = self.filename + "\t"
+        self.headerString = "filenames\t"
         for s in self.header:
             self.headerString += str(s) + "\t"
         self.headerString += "\n"
