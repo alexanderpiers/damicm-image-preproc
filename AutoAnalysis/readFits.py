@@ -17,10 +17,14 @@ def read(filename):
 	nskips = header["NDCMS"]
 	ncolumns = header["NAXIS1"] // nskips
 
+
 	# Get data and put it in the shape we want
 	data = fitsImg[0].data
 	data = np.reshape(data, (nrows, nskips, ncolumns), "F")
 	data = np.transpose(data, (0, 2, 1))
+
+	# Include the average image in the output array
+	data = np.append(data, np.mean(data, -1, keepdims=True), axis=-1)
 
 	fitsImg.close()
 	return header, data
@@ -29,7 +33,7 @@ def read(filename):
 
 if __name__ == '__main__':
 	# Testing the read function
-	fitsFilename = "../../2019-09-16/Img_8.fits"
+	fitsFilename = "../Img_20.fits"
 	header, data = read(fitsFilename)
 	colors = palettable.scientific.sequential.Devon_20.mpl_colormap
 
@@ -38,13 +42,14 @@ if __name__ == '__main__':
 
 	import matplotlib.pyplot as plt
 
-	img = np.mean(data[:,:800,5:], -1)
+	img = data[:,:,-1]
+	print(data.shape)
 	imgMean = np.mean(img)
 	imgStd = np.std(img)
 	fig, ax = plt.subplots(1, 1, figsize=(12, 8))
 	cax = ax.imshow(img, aspect="auto", vmin=imgMean - 3*imgStd, vmax=imgMean + 3*imgStd, cmap=colors)
 
-	# n = 10
+	# n = 5
 	# fig, axs = plt.subplots(n, n)
 	# print(axs.shape)
 	# for i in range(axs.size):
@@ -58,7 +63,8 @@ if __name__ == '__main__':
 
 	# Image histogram
 	figH, axH = plt.subplots(1, 1, figsize=(12, 8))
-	bins = np.linspace(imgMean - 3*imgStd, imgMean + 3*imgStd, 100)
+	bins = np.linspace(imgMean - 3*imgStd, imgMean + 3*imgStd, 1000)
+	# bins = np.linspace(19400, 19500, 200)
 	axH.hist(img.flatten(), bins=bins)
 	axH.set_xlabel("Pixel Value", fontsize=16)
 	axH.set_yscale("log")
