@@ -5,25 +5,31 @@ import os
 import inspect
 
 sys.path.append("AutoAnalysis")
+import readFits
+import PixelDistribution as pd 
 
 
 class analysisOutput(object):
     """Class that contains the information on the output results of the image analysis"""
-    def __init__(self, filename, noise=-1, atest=-1, header=[]):
+    def __init__(self, filename, noise=-1, nskips=-1, entropy=-1, header=[], headerString=""):
         super(analysisOutput, self).__init__()
 
         self.noise = noise
-        self.atest = atest
+        self.nskips = nskips
+        self.entropy = entropy
 
         self.filename = filename
         self.header = list(header)
         self.headerString = ""
 
         # Create a header string for writing out to file
-        self.headerString = "filenames\t"
-        for s in self.header:
-            self.headerString += str(s) + "\t"
-        self.headerString += "\n"
+        if headerString:
+            self.headerString = headerString
+        else:
+            self.headerString = "filenames\t"
+            for s in self.header:
+                self.headerString += str(s) + "\t"
+            self.headerString += "\n"
 
     def __str__(self):
         """ Prints information regarding the analysis of an image """
@@ -133,13 +139,19 @@ def main(argv):
 
     # Process images with functions necessary to characterize the quality of images
     processedImgFiles = []
-    processHeader = []
+    processHeader = ["nskips", "entropy"]
     print("Processing: ")
     for fp in files2Process:
         print("\t" + os.path.join(filepath, fp), end="")
+
         # Check to make sure the file has not already been processed
         if not(fp in existingImgFiles) or processAll:
-            processedImgFiles.append(analysisOutput(fp, header=processHeader))
+            # Proceess the file
+            header, data = readFits.read(fp)
+            nskips = header["NDCMS"]
+            entropy = pd.imageEntropy(data[:,:,-1])
+
+            processedImgFiles.append(analysisOutput(fp, nskips=nskips, entropy=entropy, header=processHeader))
             print( (" ....processed\n", " ....reprocessed\n") [processAll], end="")
         else:
             print( " ....skipped\n", end="")
