@@ -33,7 +33,7 @@ def read(filename):
 
 if __name__ == '__main__':
 	# Testing the read function
-	fitsFilename = "../Img_20.fits"
+	fitsFilename = "../Img_07.fits"
 	header, data = read(fitsFilename)
 	colors = palettable.scientific.sequential.Devon_20.mpl_colormap
 
@@ -47,7 +47,7 @@ if __name__ == '__main__':
 	imgMean = np.mean(img)
 	imgStd = np.std(img)
 	fig, ax = plt.subplots(1, 1, figsize=(12, 8))
-	cax = ax.imshow(img, aspect="auto", vmin=imgMean - 3*imgStd, vmax=imgMean + 3*imgStd, cmap=colors)
+	cax = ax.imshow(img, vmin=imgMean - 3*imgStd, vmax=imgMean + 3*imgStd, cmap=colors)
 
 	# n = 5
 	# fig, axs = plt.subplots(n, n)
