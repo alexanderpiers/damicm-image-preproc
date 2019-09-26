@@ -6,17 +6,24 @@ import inspect
 
 sys.path.append("AutoAnalysis")
 import readFits
-import PixelDistribution as pd 
+import PixelDistribution as pd
+import PixelStats as ps
+import constants as c
 
 
 class analysisOutput(object):
     """Class that contains the information on the output results of the image analysis"""
-    def __init__(self, filename, noise=-1, nskips=-1, entropy=-1, header=[], headerString=""):
+
+    def __init__(
+        self, filename, noise=-1, nskips=-1, entropy=-1, pixelVar=-1, imageVar=-1, header=[], headerString=""
+    ):
         super(analysisOutput, self).__init__()
 
         self.noise = noise
         self.nskips = nskips
         self.entropy = entropy
+        self.pixelVar= pixelVar
+        self.imageVar = imageVar
 
         self.filename = filename
         self.header = list(header)
@@ -37,9 +44,20 @@ class analysisOutput(object):
         outstr = "Analysis of " + self.filename + "\n"
 
         # Get all the user defined variables that contain information on the image analysis
-        classAttributesAndMethods = inspect.getmembers(self, lambda a : not(inspect.isroutine(a)))
-        classAnalysisAttributes = [a for a in classAttributesAndMethods if not(a[0].startswith("__") and a[0].endswith("__") or("header" in a[0]) or (a[0] == "filename"))]
-        
+        classAttributesAndMethods = inspect.getmembers(
+            self, lambda a: not (inspect.isroutine(a))
+        )
+        classAnalysisAttributes = [
+            a
+            for a in classAttributesAndMethods
+            if not (
+                a[0].startswith("__")
+                and a[0].endswith("__")
+                or ("header" in a[0])
+                or (a[0] == "filename")
+            )
+        ]
+
         # Print the current value of all the analysis variables
         for analysisVar in classAnalysisAttributes:
             outstr += "\t"
@@ -54,16 +72,20 @@ class analysisOutput(object):
         """
         outstr = self.filename + "\t"
         for outVar in self.header:
-            outstr += str(self.__getattribute__(outVar))
+            outVarValue = self.__getattribute__(outVar)
+            outstr += "%.4g" % outVarValue
             outstr += "\t"
+
         outstr += "\n"
         return outstr
+
 
 def sortAlphaNumeric(x):
     """ Sorts an iterable of strings of alphanumeric data in the expected human way """
     convertToInt = lambda text: int(text) if text.isdigit() else text
-    alphanumericKey = lambda key: [convertToInt(c) for c in re.split('([0-9]+)', key)]
+    alphanumericKey = lambda key: [convertToInt(c) for c in re.split("([0-9]+)", key)]
     return sorted(x, key=alphanumericKey)
+
 
 def main(argv):
     """
@@ -94,16 +116,17 @@ def main(argv):
         help="Output file for preprocessing information.",
     )
     parser.add_argument(
-    	"-d", 
-    	"--directory", 
-    	default=os.getcwd(),
-    	help="Directory to search for files in ")
+        "-d",
+        "--directory",
+        default=os.getcwd(),
+        help="Directory to search for files in ",
+    )
     parser.add_argument(
         "-a",
         "--all",
-	    action="store_true",
-        help="Processes all images that are matched (including ones that have previously been processed)")
-
+        action="store_true",
+        help="Processes all images that are matched (including ones that have previously been processed)",
+    )
 
     commandArgs = parser.parse_args()
     print(commandArgs)
@@ -122,9 +145,9 @@ def main(argv):
 
     # Iterate over all the file strings passed to find matches
     for fn in commandArgs.filenames:
-		# Define regex matching
-    	regexPattern = re.compile(fn)
-    	files2Process.extend(list(filter(regexPattern.match, files)))
+        # Define regex matching
+        regexPattern = re.compile(fn)
+        files2Process.extend(list(filter(regexPattern.match, files)))
 
     files2Process = sortAlphaNumeric(files2Process)
 
@@ -133,33 +156,49 @@ def main(argv):
     try:
         with open(outfileFullPath) as of:
             print("Reading existing processed images")
-            existingImgFiles =  [line.split()[0] for line in of]
+            existingImgFiles = [line.split()[0] for line in of]
     except FileNotFoundError:
         existingImgFiles = []
 
     # Process images with functions necessary to characterize the quality of images
     processedImgFiles = []
-    processHeader = ["nskips", "entropy"]
+    processHeader = ["nskips", "entropy", "pixelVar", "imageVar"]
     print("Processing: ")
     for fp in files2Process:
         print("\t" + os.path.join(filepath, fp), end="")
 
         # Check to make sure the file has not already been processed
-        if not(fp in existingImgFiles) or processAll:
+        if not (fp in existingImgFiles) or processAll:
             # Proceess the file
             header, data = readFits.read(fp)
             nskips = header["NDCMS"]
-            entropy = pd.imageEntropy(data[:,:,-1])
+            entropy = pd.imageEntropy(data[:, :, -1])
 
-            processedImgFiles.append(analysisOutput(fp, nskips=nskips, entropy=entropy, header=processHeader))
-            print( (" ....processed\n", " ....reprocessed\n") [processAll], end="")
+            # Compute pixel noise metrics
+            ntrials = 10000
+            singlePixelVariance, _ = ps.singlePixelVariance(
+                data[:, :, :-1], ntrials=ntrials
+            )
+            imageNoiseVariance, _ = ps.imageNoiseVariance(
+                data[:, :, :-1], nskips - c.SKIPPER_OFFSET, ntrials=ntrials
+            )
+
+            processedImgFiles.append(
+                analysisOutput(
+                    fp,
+                    nskips=nskips,
+                    entropy=entropy,
+                    header=processHeader,
+                    pixelVar=singlePixelVariance,
+                    imageVar=imageNoiseVariance,
+                )
+            )
+            print((" ....processed\n", " ....reprocessed\n")[processAll], end="")
         else:
-            print( " ....skipped\n", end="")
-
-
+            print(" ....skipped\n", end="")
 
     # Appends new images to the output file or creates new file if doesn't exist
-    if os.path.isfile(outfileFullPath) and not(processAll):
+    if os.path.isfile(outfileFullPath) and not (processAll):
         of = open(outfileFullPath, "a")
     else:
         of = open(outfileFullPath, "w+")
@@ -173,8 +212,8 @@ def main(argv):
         of.write(processedImg.getTableString())
     of.close()
 
-
     return
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
