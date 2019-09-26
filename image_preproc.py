@@ -94,6 +94,7 @@ def main(argv):
 		-o - output file destination fo the results of the processing. Default is "img_preproc_out.txt"
         -d - directory to search for images and write output to. Default is the current working directory
         -a - flag to reprocess all matched files (even if the results already exist in the output file)
+        -r - recursively search through file directotry
 	"""
 
     # Define the parser object
@@ -119,98 +120,119 @@ def main(argv):
         "-d",
         "--directory",
         default=os.getcwd(),
-        help="Directory to search for files in ",
+        help="Directory to search for files.",
     )
     parser.add_argument(
         "-a",
         "--all",
         action="store_true",
-        help="Processes all images that are matched (including ones that have previously been processed)",
+        help="Processes all images that are matched (including ones that have previously been processed).",
     )
+    parser.add_argument(
+        "-r",
+        "--recursive",
+        action="store_true",
+        help="Recursively search for images, starting at the provided directory.")
 
     commandArgs = parser.parse_args()
-    print(commandArgs)
 
     # Set command line arguments
     filepath = commandArgs.directory
     outfile = commandArgs.output
     processAll = commandArgs.all
+    recursive = commandArgs.recursive
+
+
+    # Create a list of all subdirectories to search if recursive flag is passed
+    searchDirectoryList = []
+    for searchDirectory, _, filelist in os.walk(filepath):
+        searchDirectoryList.append(searchDirectory)
+
+    if not recursive:
+        searchDirectoryList = [searchDirectoryList[0]]
 
     # Get all files in the directory
-    files = [
-        f for f in os.listdir(filepath) if os.path.isfile(os.path.join(filepath, f))
-    ]
+    for filepath in searchDirectoryList:
+        files = [
+            f for f in os.listdir(filepath) if os.path.isfile(os.path.join(filepath, f))
+        ]
 
-    files2Process = []
+        files2Process = []
 
-    # Iterate over all the file strings passed to find matches
-    for fn in commandArgs.filenames:
-        # Define regex matching
-        regexPattern = re.compile(fn)
-        files2Process.extend(list(filter(regexPattern.match, files)))
+        # Iterate over all the file strings passed to find matches
+        for fn in commandArgs.filenames:
+            # Define regex matching
+            regexPattern = re.compile(fn)
+            files2Process.extend(list(filter(regexPattern.match, files)))
 
-    files2Process = sortAlphaNumeric(files2Process)
+        files2Process = sortAlphaNumeric(files2Process)
 
-    # Check what images have already been analyzed and written to file so we do not need to recompute
-    outfileFullPath = os.path.join(filepath, outfile)
-    try:
-        with open(outfileFullPath) as of:
-            print("Reading existing processed images")
-            existingImgFiles = [line.split()[0] for line in of]
-    except FileNotFoundError:
-        existingImgFiles = []
+        # If no files matched, continues
+        if len(files2Process) == 0:
+            print("No image files matched in " + filepath)
+            continue
 
-    # Process images with functions necessary to characterize the quality of images
-    processedImgFiles = []
-    processHeader = ["nskips", "entropy", "pixelVar", "imageVar"]
-    print("Processing: ")
-    for fp in files2Process:
-        print("\t" + os.path.join(filepath, fp), end="")
-
-        # Check to make sure the file has not already been processed
-        if not (fp in existingImgFiles) or processAll:
-            # Proceess the file
-            header, data = readFits.read(fp)
-            nskips = header["NDCMS"]
-            entropy = pd.imageEntropy(data[:, :, -1])
-
-            # Compute pixel noise metrics
-            ntrials = 10000
-            singlePixelVariance, _ = ps.singlePixelVariance(
-                data[:, :, :-1], ntrials=ntrials
-            )
-            imageNoiseVariance, _ = ps.imageNoiseVariance(
-                data[:, :, :-1], nskips - c.SKIPPER_OFFSET, ntrials=ntrials
-            )
-
-            processedImgFiles.append(
-                analysisOutput(
-                    fp,
-                    nskips=nskips,
-                    entropy=entropy,
-                    header=processHeader,
-                    pixelVar=singlePixelVariance,
-                    imageVar=imageNoiseVariance,
-                )
-            )
-            print((" ....processed\n", " ....reprocessed\n")[processAll], end="")
-        else:
-            print(" ....skipped\n", end="")
-
-    # Appends new images to the output file or creates new file if doesn't exist
-    if os.path.isfile(outfileFullPath) and not (processAll):
-        of = open(outfileFullPath, "a")
-    else:
-        of = open(outfileFullPath, "w+")
+        # Check what images have already been analyzed and written to file so we do not need to recompute
+        outfileFullPath = os.path.join(filepath, outfile)
         try:
-            of.write(processedImgFiles[0].headerString)
-        except IndexError:
-            pass
+            with open(outfileFullPath) as of:
+                print("Reading existing processed images")
+                existingImgFiles = [line.split()[0] for line in of]
+        except FileNotFoundError:
+            existingImgFiles = []
 
-    # Write all the processed data
-    for processedImg in processedImgFiles:
-        of.write(processedImg.getTableString())
-    of.close()
+        # Process images with functions necessary to characterize the quality of images
+        processedImgFiles = []
+        processHeader = ["nskips", "entropy", "pixelVar", "imageVar"]
+        print("Processing: ")
+        for fp in files2Process:
+            print("\t" + os.path.join(filepath, fp), end="")
+
+            # Check to make sure the file has not already been processed
+            if not (fp in existingImgFiles) or processAll:
+                # Proceess the file
+                header, data = readFits.read(fp)
+                nskips = header["NDCMS"]
+                entropy = pd.imageEntropy(data[:, :, -1])
+
+                # Compute pixel noise metrics
+                ntrials = 10000
+                singlePixelVariance, _ = ps.singlePixelVariance(
+                    data[:, :, :-1], ntrials=ntrials
+                )
+                imageNoiseVariance, _ = ps.imageNoiseVariance(
+                    data[:, :, :-1], nskips - c.SKIPPER_OFFSET, ntrials=ntrials
+                )
+
+                processedImgFiles.append(
+                    analysisOutput(
+                        fp,
+                        nskips=nskips,
+                        entropy=entropy,
+                        header=processHeader,
+                        pixelVar=singlePixelVariance,
+                        imageVar=imageNoiseVariance,
+                    )
+                )
+                print((" ....processed\n", " ....reprocessed\n")[processAll], end="")
+            else:
+                print(" ....skipped\n", end="")
+
+
+        # Appends new images to the output file or creates new file if doesn't exist
+        if os.path.isfile(outfileFullPath) and not (processAll):
+            of = open(outfileFullPath, "a")
+        else:
+            of = open(outfileFullPath, "w+")
+            try:
+                of.write(processedImgFiles[0].headerString)
+            except IndexError:
+                pass
+
+        # Write all the processed data
+        for processedImg in processedImgFiles:
+            of.write(processedImg.getTableString())
+        of.close()
 
     return
 

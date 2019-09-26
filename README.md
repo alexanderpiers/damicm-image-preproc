@@ -21,6 +21,8 @@ Additionally, the following command line arguments can be used:
 -o --output <outfilename>
 -d --directory <dir>
 -a --all
+-r --recursive
+-h --help
 ```
 
 The arguments for `-f` can be a list of filenames (also supports wildcard matching) or a regex pattern, and all files in the directory that match the pattern will be processed. `-d` is the directory to search for files to process. By default, only files where the processed results are not in the `<outfilename>` will be processed; to process all files that match, use the `-a` flag.
