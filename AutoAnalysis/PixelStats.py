@@ -95,7 +95,7 @@ def generatePixelArray(npixels, nrows, ncolumns, ntrials):
 	"""
 
 	# Define the max and min edge length
-	pixelArrayMaxEdgeRow = np.min(np.ceil(np.sqrt(npixels)), nrows)
+	pixelArrayMaxEdgeRow = np.min([np.ceil(np.sqrt(npixels)), nrows])
 	pixelArrayMaxEdgeCol = np.ceil(npixels / pixelArrayMaxEdgeRow)
 
 	# Define arrays to hold the index of pixel array 
