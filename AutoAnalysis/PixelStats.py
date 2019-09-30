@@ -95,21 +95,21 @@ def generatePixelArray(npixels, nrows, ncolumns, ntrials):
 	"""
 
 	# Define the max and min edge length
-	pixelArrayMaxEdge = np.ceil(np.sqrt(npixels))
-	pixelArrayMinEdge = np.floor(np.sqrt(npixels))
+	pixelArrayMaxEdgeRow = np.min(np.ceil(np.sqrt(npixels)), nrows)
+	pixelArrayMaxEdgeCol = np.ceil(npixels / pixelArrayMaxEdgeRow)
 
 	# Define arrays to hold the index of pixel array 
 	rowIndex = np.zeros((ntrials, npixels), dtype=int)
 	colIndex = np.zeros((ntrials, npixels), dtype=int)
 
 	# Start at a random spot within the image
-	rowIndex[:, 0] = np.random.uniform(0, nrows - pixelArrayMaxEdge, ntrials).astype(int)
-	colIndex[:, 0] = np.random.uniform(0, ncolumns - pixelArrayMaxEdge, ntrials).astype(int)
+	rowIndex[:, 0] = np.random.uniform(0, nrows - pixelArrayMaxEdgeRow, ntrials).astype(int)
+	colIndex[:, 0] = np.random.uniform(0, ncolumns - pixelArrayMaxEdgeCol, ntrials).astype(int)
 
 	# Create pixel array to be as much of a square as possible
 	for i in range(npixels):
-		rowIndex[:, i] = rowIndex[:, 0] + i%pixelArrayMaxEdge
-		colIndex[:, i] = colIndex[:, 0] + i//pixelArrayMaxEdge
+		rowIndex[:, i] = rowIndex[:, 0] + i%pixelArrayMaxEdgeRow
+		colIndex[:, i] = colIndex[:, 0] + i//pixelArrayMaxEdgeRow
 
 	return rowIndex, colIndex
 
