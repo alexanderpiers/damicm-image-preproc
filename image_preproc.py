@@ -23,7 +23,7 @@ class AnalysisOutput(object):
         self.entropy = -1
         self.pixelVar= -1
         self.imageVar = -1
-        self.imgFitNoise = -1
+        self.imageFitNoise = -1
         self.entropySlope = -1
 
         self.filename = filename
@@ -116,7 +116,7 @@ def processImage(filename):
     processedImage.entropySlope = pd.convertValErrToString((entropySlope, entropySlopeErr))
 
     # Compute Overall image noise (fit to entire image)
-    processedImage.imageFitNoise = pd.computeImageNoise(data[:, :, -1])
+    processedImage.imageFitNoise = pd.computeImageNoise(data[:, :, :-1])
 
     # Compute pixel noise metrics
     ntrials = 10000
