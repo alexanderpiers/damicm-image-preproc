@@ -11,19 +11,20 @@ import PixelStats as ps
 import constants as c
 
 
-class analysisOutput(object):
+class AnalysisOutput(object):
     """Class that contains the information on the output results of the image analysis"""
 
     def __init__(
-        self, filename, noise=-1, nskips=-1, entropy=-1, pixelVar=-1, imageVar=-1, header=[], headerString=""
+        self, filename, nskips=-1, header=[], headerString=""
     ):
-        super(analysisOutput, self).__init__()
+        super(AnalysisOutput, self).__init__()
 
-        self.noise = noise
         self.nskips = nskips
-        self.entropy = entropy
-        self.pixelVar= pixelVar
-        self.imageVar = imageVar
+        self.entropy = -1
+        self.pixelVar= -1
+        self.imageVar = -1
+        self.imgFitNoise = -1
+        self.entropySlope = -1
 
         self.filename = filename
         self.header = list(header)
@@ -31,7 +32,10 @@ class analysisOutput(object):
 
         # Create a header string for writing out to file
         if headerString:
-            self.headerString = headerString
+            self.headerString = "filenames\t"
+            for s in headerString:
+                self.headerString += str(s) + "\t"
+            self.headerString += "\n"
         else:
             self.headerString = "filenames\t"
             for s in self.header:
@@ -73,7 +77,10 @@ class analysisOutput(object):
         outstr = self.filename + "\t"
         for outVar in self.header:
             outVarValue = self.__getattribute__(outVar)
-            outstr += "%.4g" % outVarValue
+            try:
+                outstr += "%.4g" % outVarValue
+            except TypeError:
+                outstr += outVarValue
             outstr += "\t"
 
         outstr += "\n"
@@ -85,6 +92,45 @@ def sortAlphaNumeric(x):
     convertToInt = lambda text: int(text) if text.isdigit() else text
     alphanumericKey = lambda key: [convertToInt(c) for c in re.split("([0-9]+)", key)]
     return sorted(x, key=alphanumericKey)
+
+
+def processImage(filename):
+    """
+    Function to do enclose the image processing function. Returns an analysisOutput object 
+    """
+
+    # Read image
+    header, data = readFits.read(filename)
+
+    nskips = header["NDCMS"]
+    processHeader = ["nskips", "entropy", "entropySlope", "imgFitNoise", "pixelVar", "imageVar"]
+    headerString = ["nskips", "aveImgS", "dS/dskip", "imgNoise", "pixVar", "clustVar"]
+
+    processedImage = AnalysisOutput(filename, nskips=nskips, header=processHeader, headerString=headerString)
+
+    # Compute average image entropy
+    processedImage.entropy = pd.imageEntropy(data[:, :, -1])
+
+    # Compute Entropy slope
+    entropySlope, entropySlopeErr, _ = pd.imageEntropySlope(data[:, :, :-1])
+    processedImage.entropySlope = pd.convertValErrToString((entropySlope, entropySlopeErr))
+
+    # Compute Overall image noise (fit to entire image)
+    processedImage.imageFitNoise = pd.computeImageNoise(data[:, :, -1])
+
+    # Compute pixel noise metrics
+    ntrials = 10000
+    singlePixelVariance, _ = ps.singlePixelVariance(
+        data[:, :, :-1], ntrials=ntrials
+    )
+    imageNoiseVariance, _ = ps.imageNoiseVariance(
+        data[:, :, :-1], nskips - c.SKIPPER_OFFSET, ntrials=ntrials
+    )
+    processedImage.pixelVar = singlePixelVariance
+    processedImage.imageVar = imageNoiseVariance
+
+
+    return processedImage
 
 
 def main(argv):
@@ -183,38 +229,18 @@ def main(argv):
 
         # Process images with functions necessary to characterize the quality of images
         processedImgFiles = []
-        processHeader = ["nskips", "entropy", "pixelVar", "imageVar"]
+
         print("Processing: ")
         for fp in files2Process:
             print("\t" + os.path.join(filepath, fp), end="")
 
             # Check to make sure the file has not already been processed
             if not (fp in existingImgFiles) or processAll:
-                # Proceess the file
-                header, data = readFits.read(fp)
-                nskips = header["NDCMS"]
-                entropy = pd.imageEntropy(data[:, :, -1])
 
-                # Compute pixel noise metrics
-                ntrials = 10000
-                singlePixelVariance, _ = ps.singlePixelVariance(
-                    data[:, :, :-1], ntrials=ntrials
-                )
-                imageNoiseVariance, _ = ps.imageNoiseVariance(
-                    data[:, :, :-1], nskips - c.SKIPPER_OFFSET, ntrials=ntrials
-                )
-
-                processedImgFiles.append(
-                    analysisOutput(
-                        fp,
-                        nskips=nskips,
-                        entropy=entropy,
-                        header=processHeader,
-                        pixelVar=singlePixelVariance,
-                        imageVar=imageNoiseVariance,
-                    )
-                )
+                # Process image
+                processedImgFiles.append(processImage(fp))
                 print((" ....processed\n", " ....reprocessed\n")[processAll], end="")
+
             else:
                 print(" ....skipped\n", end="")
 
