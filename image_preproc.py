@@ -103,7 +103,7 @@ def processImage(filename):
     header, data = readFits.read(filename)
 
     nskips = header["NDCMS"]
-    processHeader = ["nskips", "entropy", "entropySlope", "imgFitNoise", "pixelVar", "imageVar"]
+    processHeader = ["nskips", "entropy", "entropySlope", "imageFitNoise", "pixelVar", "imageVar"]
     headerString = ["nskips", "aveImgS", "dS/dskip", "imgNoise", "pixVar", "clustVar"]
 
     processedImage = AnalysisOutput(filename, nskips=nskips, header=processHeader, headerString=headerString)
