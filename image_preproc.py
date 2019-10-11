@@ -145,6 +145,7 @@ def main(argv):
         -d - directory to search for images and write output to. Default is the current working directory
         -a - flag to reprocess all matched files (even if the results already exist in the output file)
         -r - recursively search through file directotry
+        -p - prints output of analysis to terminal instead of saving to file
 	"""
 
     # Define the parser object
@@ -183,6 +184,11 @@ def main(argv):
         "--recursive",
         action="store_true",
         help="Recursively search for images, starting at the provided directory.")
+    parser.add_argument(
+        "-p",
+        "--print",
+        action="store_true",
+        help="Prints output of analysis to terminal instead of saving to file.")
 
     commandArgs = parser.parse_args()
 
@@ -191,6 +197,7 @@ def main(argv):
     outfile = commandArgs.output
     processAll = commandArgs.all
     recursive = commandArgs.recursive
+    printToTerminal = commandArgs.print
 
 
     # Create a list of all subdirectories to search if recursive flag is passed
@@ -248,7 +255,11 @@ def main(argv):
             else:
                 print(" ....skipped\n", end="")
 
-
+        if printToTerminal:
+            for processedImg in processedImgFiles:
+                print(str(processedImg))
+            continue
+            
         # Appends new images to the output file or creates new file if doesn't exist
         if os.path.isfile(outfileFullPath) and not (processAll):
             of = open(outfileFullPath, "a")
