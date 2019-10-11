@@ -20,11 +20,13 @@ class AnalysisOutput(object):
         super(AnalysisOutput, self).__init__()
 
         self.nskips = nskips
-        self.entropy = -1
+        self.aveImgS = -1
+        self.dSdskip = -1
         self.pixelVar= -1
-        self.imageVar = -1
-        self.imageFitNoise = -1
-        self.entropySlope = -1
+        self.clustVar = -1
+        self.tailRatio = -1
+        self.imgNoise = -1
+        self.skNoise = -1
 
         self.filename = filename
         self.header = list(header)
@@ -103,20 +105,22 @@ def processImage(filename):
     header, data = readFits.read(filename)
 
     nskips = header["NDCMS"]
-    processHeader = ["nskips", "entropy", "entropySlope", "imageFitNoise", "pixelVar", "imageVar"]
-    headerString = ["nskips", "aveImgS", "dS/dskip", "imgNoise", "pixVar", "clustVar"]
+    processHeader = ["nskips", "aveImgS", "dSdskip", "imgNoise", "skNoise", "pixelVar", "clustVar", "tailRatio"]
+    headerString = ["nskips", "aveImgS", "dSdskip", "imgNoise", "skNoise", "pixVar", "clustVar", "tailRatio"]
 
     processedImage = AnalysisOutput(filename, nskips=nskips, header=processHeader, headerString=headerString)
 
     # Compute average image entropy
-    processedImage.entropy = pd.imageEntropy(data[:, :, -1])
+    processedImage.aveImgS = pd.imageEntropy(data[:, :, -1])
 
     # Compute Entropy slope
     entropySlope, entropySlopeErr, _ = pd.imageEntropySlope(data[:, :, :-1])
-    processedImage.entropySlope = pd.convertValErrToString((entropySlope, entropySlopeErr))
+    processedImage.dSdskip = pd.convertValErrToString((entropySlope, entropySlopeErr))
 
-    # Compute Overall image noise (fit to entire image)
-    processedImage.imageFitNoise = pd.computeImageNoise(data[:, :, :-1])
+    # Compute Overall image noise (fit to entire image) and skipper noise
+    processedImage.imgNoise = pd.computeImageNoise(data[:, :, :-1])
+    skImageNoise, skImageNoiseErr = pd.computeSkImageNoise(data[:, :, -1])
+    processedImage.skNoise = pd.convertValErrToString((skImageNoise, skImageNoiseErr))
 
     # Compute pixel noise metrics
     ntrials = 10000
@@ -127,8 +131,8 @@ def processImage(filename):
         data[:, :, :-1], nskips - c.SKIPPER_OFFSET, ntrials=ntrials
     )
     processedImage.pixelVar = singlePixelVariance
-    processedImage.imageVar = imageNoiseVariance
-
+    processedImage.clustVar = imageNoiseVariance
+    processedImage.tailRatio = pd.computeClusterVarianceRatio(data[:,:,:-1], npixels=250, ntrials=ntrials)
 
     return processedImage
 
