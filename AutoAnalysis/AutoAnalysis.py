@@ -25,7 +25,7 @@ if len(sys.argv) > 2:
     col = int(sys.argv[3])
 
 if len(sys.argv) > 4:
-    if (sys.argv[4] == "diff"):
+    if sys.argv[4] == "diff":
         first = int(sys.argv[5])
         second = int(sys.argv[6])
     if (sys.argv[4] == "trend") or (sys.argv[4] == "fourier"):
@@ -46,7 +46,7 @@ with fits.open(ImgFile) as hduImg:
     # extract image data
 
     data = hduImg[0].data
-    
+
     print("Point Val: " + str(data[row, col]))
 
     if len(sys.argv) > 2:
@@ -73,15 +73,14 @@ with fits.open(ImgFile) as hduImg:
                     + ": "
                     + str(VAL.findSlope(data, row, col, skips, start, end))
                 )
-                if(len(sys.argv) > 7):
+                if len(sys.argv) > 7:
                     print("blah")
-                    #PIX.plotCurveFit(data, row, col, skips, start, end, sys.argv[7])
+                    # PIX.plotCurveFit(data, row, col, skips, start, end, sys.argv[7])
             if sys.argv[4] == "fourier":
                 print("efa")
                 FOR.plotFourier(data, row, col, skips, start, end)
-        
-        #PIX.plotPixel(data, row, col, skips, ImgFile)
+
+        # PIX.plotPixel(data, row, col, skips, ImgFile)
         MEAN.meanImage(data, row, col, start, end, skips, ImgFile)
-        
 
     # print(RMS.mapSKrms(data, skips))

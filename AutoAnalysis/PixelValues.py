@@ -8,6 +8,7 @@ offset = 2
 # allows more pixels to be seen
 multiplier = 1
 
+
 def findStDev(data, row, column, skips):
 
     # Finds the st. dev of one pixel's measurement values
@@ -72,15 +73,9 @@ def findSlope(data, row, column, skips, start, end):
     xsquaresum = 0
     count = 0
 
-    for col in range(
-        offset + column * skips + start,
-        offset + column * skips + end,
-        1,
-    ):
+    for col in range(offset + column * skips + start, offset + column * skips + end, 1):
         xydiffsum = xydiffsum + (count - xmean) * (data[row, col] - ymean)
         xsquaresum = xsquaresum + math.pow((count - xmean), 2)
         count = count + 1
 
     return (xydiffsum) / (xsquaresum)
-
-

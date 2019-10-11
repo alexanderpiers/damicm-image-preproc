@@ -14,15 +14,13 @@ import constants as c
 class AnalysisOutput(object):
     """Class that contains the information on the output results of the image analysis"""
 
-    def __init__(
-        self, filename, nskips=-1, header=[], headerString=""
-    ):
+    def __init__(self, filename, nskips=-1, header=[], headerString=""):
         super(AnalysisOutput, self).__init__()
 
         self.nskips = nskips
         self.aveImgS = -1
         self.dSdskip = -1
-        self.pixelVar= -1
+        self.pixelVar = -1
         self.clustVar = -1
         self.tailRatio = -1
         self.imgNoise = -1
@@ -105,10 +103,30 @@ def processImage(filename):
     header, data = readFits.read(filename)
 
     nskips = header["NDCMS"]
-    processHeader = ["nskips", "aveImgS", "dSdskip", "imgNoise", "skNoise", "pixelVar", "clustVar", "tailRatio"]
-    headerString = ["nskips", "aveImgS", "dSdskip", "imgNoise", "skNoise", "pixVar", "clustVar", "tailRatio"]
+    processHeader = [
+        "nskips",
+        "aveImgS",
+        "dSdskip",
+        "imgNoise",
+        "skNoise",
+        "pixelVar",
+        "clustVar",
+        "tailRatio",
+    ]
+    headerString = [
+        "nskips",
+        "aveImgS",
+        "dSdskip",
+        "imgNoise",
+        "skNoise",
+        "pixVar",
+        "clustVar",
+        "tailRatio",
+    ]
 
-    processedImage = AnalysisOutput(filename, nskips=nskips, header=processHeader, headerString=headerString)
+    processedImage = AnalysisOutput(
+        filename, nskips=nskips, header=processHeader, headerString=headerString
+    )
 
     # Compute average image entropy
     processedImage.aveImgS = pd.imageEntropy(data[:, :, -1])
@@ -124,15 +142,15 @@ def processImage(filename):
 
     # Compute pixel noise metrics
     ntrials = 10000
-    singlePixelVariance, _ = ps.singlePixelVariance(
-        data[:, :, :-1], ntrials=ntrials
-    )
+    singlePixelVariance, _ = ps.singlePixelVariance(data[:, :, :-1], ntrials=ntrials)
     imageNoiseVariance, _ = ps.imageNoiseVariance(
         data[:, :, :-1], nskips - c.SKIPPER_OFFSET, ntrials=ntrials
     )
     processedImage.pixelVar = singlePixelVariance
     processedImage.clustVar = imageNoiseVariance
-    processedImage.tailRatio = pd.computeClusterVarianceRatio(data[:,:,:-1], npixels=250, ntrials=ntrials)
+    processedImage.tailRatio = pd.computeClusterVarianceRatio(
+        data[:, :, :-1], npixels=250, ntrials=ntrials
+    )
 
     return processedImage
 
@@ -168,10 +186,7 @@ def main(argv):
         help="Output file for preprocessing information.",
     )
     parser.add_argument(
-        "-d",
-        "--directory",
-        default=os.getcwd(),
-        help="Directory to search for files.",
+        "-d", "--directory", default=os.getcwd(), help="Directory to search for files."
     )
     parser.add_argument(
         "-a",
@@ -183,12 +198,14 @@ def main(argv):
         "-r",
         "--recursive",
         action="store_true",
-        help="Recursively search for images, starting at the provided directory.")
+        help="Recursively search for images, starting at the provided directory.",
+    )
     parser.add_argument(
         "-p",
         "--print",
         action="store_true",
-        help="Prints output of analysis to terminal instead of saving to file.")
+        help="Prints output of analysis to terminal instead of saving to file.",
+    )
 
     commandArgs = parser.parse_args()
 
@@ -198,7 +215,6 @@ def main(argv):
     processAll = commandArgs.all
     recursive = commandArgs.recursive
     printToTerminal = commandArgs.print
-
 
     # Create a list of all subdirectories to search if recursive flag is passed
     searchDirectoryList = []
@@ -259,7 +275,7 @@ def main(argv):
             for processedImg in processedImgFiles:
                 print(str(processedImg))
             continue
-            
+
         # Appends new images to the output file or creates new file if doesn't exist
         if os.path.isfile(outfileFullPath) and not (processAll):
             of = open(outfileFullPath, "a")
