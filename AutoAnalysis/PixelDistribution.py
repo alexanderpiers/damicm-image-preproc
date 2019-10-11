@@ -108,7 +108,7 @@ def computeSkImageNoise(image, nMovingAverage=10):
 	"""
 
     # Histogram the image
-    hSkipper, bincSkipper, _ = histogramImage(image)
+    hSkipper, bincSkipper, _ = histogramImage(image, nsigma=6, minRange=100)
 
     # Smooth Data
     smoothHSkipper = np.convolve(
@@ -125,6 +125,12 @@ def computeSkImageNoise(image, nMovingAverage=10):
     )
     maximaLoc = bincSkipper[maximaIndex]
     minimaLoc = bincSkipper[minimaIndex]
+    
+    # fig, ax = plt.subplots(1, 1, figsize=(12,9))
+    # ax.plot(bincSkipper, hSkipper, "*k")
+    # ax.plot(bincSkipper, smoothHSkipper, "--r")
+    # ax.plot(maximaLoc, hSkipper[maximaIndex], "*b")
+    # ax.plot(minimaLoc, hSkipper[minimaIndex], "*g")
 
     # Find the fit range (choose the appropriate maxima and minima)
     try:
@@ -132,12 +138,15 @@ def computeSkImageNoise(image, nMovingAverage=10):
         fitMax = minimaLoc[-1]
         fitMean = maximaLoc[-2] if maximaLoc[-1] > minimaLoc[-1] else maximaLoc[-1]
     except:
-        return -1, -1
+	    print("could not find enough minima and maxima")
+	    return -1, -1
 
     # Keep only data in the fit range
     fitIndex = (bincSkipper >= fitMin) * (bincSkipper <= fitMax)
     fitXRange = bincSkipper[np.nonzero(fitIndex)]
     fitSkipperValues = hSkipper[np.nonzero(fitIndex)]
+
+  
 
     # Fit peak with gaussian
     gausfunc = lambda x, *p: p[0] * np.exp(-(x - p[1]) ** 2 / (2 * p[2] ** 2))
@@ -153,6 +162,9 @@ def computeSkImageNoise(image, nMovingAverage=10):
     except (RuntimeError, optimize.OptimizeWarning) as e:
         return -1, -1
 
+    # x = np.linspace(fitMin, fitMax, 100)
+    # ax.plot(x, gausfunc(x, *paramOpt), 'k', linewidth=3)
+    
     # Return noise and error
     skImageNoise = paramOpt[2]
     skImageNoiseErr = np.sqrt(cov[2, 2])
@@ -216,7 +228,7 @@ def convertValErrToString(param):
     return "%.2g +/- %.2g" % (param[0], param[1])
 
 
-def histogramImage(image):
+def histogramImage(image, nsigma=3, minRange=None):
     """
 	Creates a histogram of an image (or any data set) of a reasonable range with integer (ADU) spaced bins
 	Inputs:
@@ -231,7 +243,10 @@ def histogramImage(image):
     mad = scipy.stats.median_absolute_deviation(image, axis=None)
 
     # Create bins. +/- 3*mad
-    bins = np.arange(np.floor(med - 3 * mad), np.ceil(med + 3 * mad))
+    if minRange and 2*nsigma*mad < minRange:
+    	bins = np.arange(np.floor(med - minRange/2), np.ceil(med + minRange/2))
+    else:
+	    bins = np.arange(np.floor(med - nsigma * mad), np.ceil(med + nsigma * mad))
     val, edges = np.histogram(image, bins=bins)
     centers = edges[:-1] + np.diff(edges)[0] / 2
 
@@ -240,7 +255,7 @@ def histogramImage(image):
 
 if __name__ == "__main__":
 
-    filename = "../Img_08.fits"
+    filename = "../Img_10.fits"
 
     _, data = readFits.read(filename)
 
@@ -260,4 +275,5 @@ if __name__ == "__main__":
     # 	computeClusterVarianceExcess(testdata, npixels=100, ntrials=int(10e4))
     # # plt.show()
 
-    sigma = computeSkImageNoise(data[:, :, -1])
+    sigma = computeSkImageNoise(data[:, :, -1], nMovingAverage=8)
+    plt.show()
