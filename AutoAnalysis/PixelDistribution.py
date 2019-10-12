@@ -146,8 +146,6 @@ def computeSkImageNoise(image, nMovingAverage=10):
     fitXRange = bincSkipper[np.nonzero(fitIndex)]
     fitSkipperValues = hSkipper[np.nonzero(fitIndex)]
 
-  
-
     # Fit peak with gaussian
     gausfunc = lambda x, *p: p[0] * np.exp(-(x - p[1]) ** 2 / (2 * p[2] ** 2))
     paramGuess = [
@@ -164,7 +162,7 @@ def computeSkImageNoise(image, nMovingAverage=10):
 
     # x = np.linspace(fitMin, fitMax, 100)
     # ax.plot(x, gausfunc(x, *paramOpt), 'k', linewidth=3)
-    
+
     # Return noise and error
     skImageNoise = paramOpt[2]
     skImageNoiseErr = np.sqrt(cov[2, 2])
@@ -255,7 +253,7 @@ def histogramImage(image, nsigma=3, minRange=None):
 
 if __name__ == "__main__":
 
-    filename = "../Img_10.fits"
+    filename = "../Img_11.fits"
 
     _, data = readFits.read(filename)
 
@@ -275,5 +273,5 @@ if __name__ == "__main__":
     # 	computeClusterVarianceExcess(testdata, npixels=100, ntrials=int(10e4))
     # # plt.show()
 
-    sigma = computeSkImageNoise(data[:, :, -1], nMovingAverage=8)
+    sigma = computeSkImageNoise(data[:, :, -1], nMovingAverage=5)
     plt.show()

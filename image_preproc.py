@@ -137,7 +137,8 @@ def processImage(filename):
 
     # Compute Overall image noise (fit to entire image) and skipper noise
     processedImage.imgNoise = pd.computeImageNoise(data[:, :, :-1])
-    skImageNoise, skImageNoiseErr = pd.computeSkImageNoise(data[:, :, -1])
+    nSmoothing = 4 if nskips > 1 else 12 # need less agressive moving average on skipper images
+    skImageNoise, skImageNoiseErr = pd.computeSkImageNoise(data[:, :, -1], nMovingAverage=nSmoothing)
     processedImage.skNoise = pd.convertValErrToString((skImageNoise, skImageNoiseErr))
 
     # Compute pixel noise metrics
