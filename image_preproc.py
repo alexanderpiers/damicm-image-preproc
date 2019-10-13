@@ -5,7 +5,7 @@ import os
 import inspect
 import tabulate
 
-sys.path.append("AutoAnalysis")
+sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), "AutoAnalysis"))
 import readFits
 import PixelDistribution as pd
 import PixelStats as ps
