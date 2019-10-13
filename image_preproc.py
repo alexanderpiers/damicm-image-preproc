@@ -3,6 +3,7 @@ import regex as re
 import sys
 import os
 import inspect
+import tabulate
 
 sys.path.append("AutoAnalysis")
 import readFits
@@ -20,7 +21,7 @@ class AnalysisOutput(object):
         self.nskips = nskips
         self.aveImgS = -1
         self.dSdskip = -1
-        self.pixelVar = -1
+        self.pixVar = -1
         self.clustVar = -1
         self.tailRatio = -1
         self.imgNoise = -1
@@ -74,7 +75,6 @@ class AnalysisOutput(object):
             Returns a string of the class values depending on what values we want to return specified in the header attribute 
             For printing values in tabulated format.
         """
-        outstr = self.filename + "\t"
         for outVar in self.header:
             outVarValue = self.__getattribute__(outVar)
             try:
@@ -86,6 +86,16 @@ class AnalysisOutput(object):
         outstr += "\n"
         return outstr
 
+    def getTableList(self):
+        outputList = []
+        for outVar in self.header:
+            outVarValue = self.__getattribute__(outVar)
+            try:
+                outputList.append("%.4g" % outVarValue)
+            except TypeError:
+                outputList.append(outVarValue)
+            
+        return outputList
 
 def sortAlphaNumeric(x):
     """ Sorts an iterable of strings of alphanumeric data in the expected human way """
@@ -94,7 +104,7 @@ def sortAlphaNumeric(x):
     return sorted(x, key=alphanumericKey)
 
 
-def processImage(filename):
+def processImage(filename, headerString):
     """
     Function to do enclose the image processing function. Returns an analysisOutput object 
     """
@@ -103,29 +113,9 @@ def processImage(filename):
     header, data = readFits.read(filename)
 
     nskips = header["NDCMS"]
-    processHeader = [
-        "nskips",
-        "aveImgS",
-        "dSdskip",
-        "imgNoise",
-        "skNoise",
-        "pixelVar",
-        "clustVar",
-        "tailRatio",
-    ]
-    headerString = [
-        "nskips",
-        "aveImgS",
-        "dSdskip",
-        "imgNoise",
-        "skNoise",
-        "pixVar",
-        "clustVar",
-        "tailRatio",
-    ]
 
     processedImage = AnalysisOutput(
-        filename, nskips=nskips, header=processHeader, headerString=headerString
+        filename, nskips=nskips, header=headerString, 
     )
 
     # Compute average image entropy
@@ -147,11 +137,9 @@ def processImage(filename):
     imageNoiseVariance, _ = ps.imageNoiseVariance(
         data[:, :, :-1], nskips - c.SKIPPER_OFFSET, ntrials=ntrials
     )
-    processedImage.pixelVar = singlePixelVariance
+    processedImage.pixVar = singlePixelVariance
     processedImage.clustVar = imageNoiseVariance
-    processedImage.tailRatio = pd.computeClusterVarianceRatio(
-        data[:, :, :-1], npixels=250, ntrials=ntrials
-    )
+    processedImage.tailRatio = pd.computeImageTailRatio(data[:, :, :-1])
 
     return processedImage
 
@@ -217,6 +205,19 @@ def main(argv):
     recursive = commandArgs.recursive
     printToTerminal = commandArgs.print
 
+    headerString = [
+        "filename",
+        "nskips",
+        "aveImgS",
+        "dSdskip",
+        "imgNoise",
+        "skNoise",
+        "pixVar",
+        "clustVar",
+        "tailRatio",
+    ]
+
+
     # Create a list of all subdirectories to search if recursive flag is passed
     searchDirectoryList = []
     for searchDirectory, _, filelist in os.walk(filepath):
@@ -266,30 +267,31 @@ def main(argv):
             if not (fp in existingImgFiles) or processAll:
 
                 # Process image
-                processedImgFiles.append(processImage(fp))
+                processedImgFiles.append(processImage(fp, headerString))
                 print((" ....processed\n", " ....reprocessed\n")[processAll], end="")
 
             else:
                 print(" ....skipped\n", end="")
 
+        # Create the output string to print as table
+        outputString=[]
+        for processedImg in processedImgFiles:
+            outputString.append(processedImg.getTableList())
+        outputStringTable = tabulate.tabulate(outputString, headers=headerString) + "\n"
+        
+        # Print to terminal if -p flag is passed
         if printToTerminal:
-            for processedImg in processedImgFiles:
-                print(str(processedImg))
+            print(outputStringTable, end="")
             continue
 
-        # Appends new images to the output file or creates new file if doesn't exist
+        # Appends new images to the output file or creates new file if it doesn't exist
         if os.path.isfile(outfileFullPath) and not (processAll):
             of = open(outfileFullPath, "a")
+            of.write("\n".join(outputStringTable.split("\n")[2:]))
         else:
             of = open(outfileFullPath, "w+")
-            try:
-                of.write(processedImgFiles[0].headerString)
-            except IndexError:
-                pass
+            of.write(outputStringTable)
 
-        # Write all the processed data
-        for processedImg in processedImgFiles:
-            of.write(processedImg.getTableString())
         of.close()
 
     return
