@@ -261,7 +261,8 @@ def main(argv):
 
         print("Processing: ")
         for fp in files2Process:
-            print("\t" + os.path.join(filepath, fp), end="")
+            fp = os.path.join(filepath, fp)
+            print("\t" + fp, end="")
 
             # Check to make sure the file has not already been processed
             if not (fp in existingImgFiles) or processAll:
