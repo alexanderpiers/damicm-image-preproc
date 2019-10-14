@@ -53,7 +53,7 @@ The output of this code is a table of variables for each processed file. Below i
 
 - `filename` - file processed.
 - `nskips` - number of NDCM made on the image. Extracted from the .fits header information.
-- `aveImgS` - the entropy of the average image. Entropy is defined as $\sum_i p_i \log (p_i)$ where $p_i$ is the probability of a pixel measurement calculated from the histogram of the image. 
+- `aveImgS` - the entropy of the average image. Entropy is defined as $-\sum_i p_i \log (p_i)$ where $p_i$ is the probability of a pixel measurement calculated from the histogram of the image. 
 - `dSdskip` - The rate of change of entropy as a function of skips. Slope is computed from a fit to the entropy of each individual image. Units are millidits and values of $<-10$ typically corresponde to charge lost between skips. 
 - `imgNoise` - average noise (in ADU) of the images taken (if more than one skip used). Fit to the central distribution of image.
 - `skNoise` - noise of the individual peaks in the average image. Code looks for minima in a smoothed histogram to set the bounds on the fitting. If two minima are not found (i.e. no single electron peaks) the fit returns -1. 
