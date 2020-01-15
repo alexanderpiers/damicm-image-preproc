@@ -4,6 +4,7 @@ import scipy.optimize as optimize
 import readFits
 import matplotlib.pyplot as plt
 import PixelStats as ps
+from scipy.special import factorial
 
 
 def imageEntropy(image):
@@ -110,22 +111,9 @@ def computeSkImageNoise(image, nMovingAverage=10):
     # Histogram the image
     hSkipper, bincSkipper, _ = histogramImage(image, nsigma=6, minRange=100)
 
-    # Smooth Data
-    smoothHSkipper = np.convolve(
-        hSkipper, np.ones(nMovingAverage) / nMovingAverage, mode="same"
-    )
+    # Find the minima and maxima 
+    maximaLoc, minimaLoc = findPeakPosition(hSkipper, bincSkipper, nMovingAverage=nMovingAverage)
 
-    # Peak find on smoothed data
-    derivative = np.diff(smoothHSkipper)
-    maximaIndex = np.nonzero(
-        np.hstack((0, (derivative[:-1] > 0) * (derivative[1:] < 0), 0))
-    )
-    minimaIndex = np.nonzero(
-        np.hstack((0, (derivative[:-1] < 0) * (derivative[1:] > 0), 0))
-    )
-    maximaLoc = bincSkipper[maximaIndex]
-    minimaLoc = bincSkipper[minimaIndex]
-    
     # fig, ax = plt.subplots(1, 1, figsize=(12,9))
     # ax.plot(bincSkipper, hSkipper, "*k")
     # ax.plot(bincSkipper, smoothHSkipper, "--r")
@@ -167,6 +155,141 @@ def computeSkImageNoise(image, nMovingAverage=10):
     skImageNoise = paramOpt[2]
     skImageNoiseErr = np.sqrt(cov[2, 2])
     return skImageNoise, skImageNoiseErr
+
+def computeDarkCurrent(image, header, nMovingAverage=10):
+    """
+        Computes the dark current in a skipper image. Takes the integral of each peak and fits to a poisson distribution
+        to get mean number of electrons per pixel per exposure.
+    """
+
+    hSkipper, bincSkipper, _ = histogramImage(image, nsigma=6, minRange=100)
+
+    # Find minima and maxima
+    maximaLoc, minimaLoc = findPeakPosition(hSkipper, bincSkipper, nMovingAverage=nMovingAverage)
+
+    # Define the different fit ranges
+    fitMin = []
+    fitMax = []
+    fitMean = []
+
+    # Make sure we have the same number of minima and maxima (to correctly find all peaks)
+    if minimaLoc.size < maximaLoc.size:
+        maximaLoc = maximaLoc[maximaLoc.size-minimaLoc.size:]
+
+    for i in range(minimaLoc.size):
+        # Get fit ranges for a given peak
+        fitMin.append(minimaLoc[i])
+        fitMean.append(maximaLoc[i])
+
+        # Last peak (0 electron) requires some special attention because a minima is not found to the right of the peak
+        try:
+            fitMax.append(minimaLoc[i+1])
+        except IndexError:
+            fitMax.append(2 * maximaLoc[i] - minimaLoc[i])
+
+
+    # Debugging plots
+    # Smooth Data
+    smoothCurve = np.convolve(
+        hSkipper, np.ones(nMovingAverage) / nMovingAverage, mode="same"
+    )
+    # Peak find on smoothed data
+    derivative = np.diff(smoothCurve)
+    maximaIndex = np.nonzero(
+        np.hstack((0, (derivative[:-1] > 0) * (derivative[1:] < 0), 0))
+    )
+    minimaIndex = np.nonzero(
+        np.hstack((0, (derivative[:-1] < 0) * (derivative[1:] > 0), 0))
+    )
+    maximaLoc = bincSkipper[maximaIndex]
+    minimaLoc = bincSkipper[minimaIndex]
+    fig, ax = plt.subplots(1, 1, figsize=(12,9))
+    ax.plot(bincSkipper, hSkipper, "*k", label="Pixel Histogram")
+    ax.plot(bincSkipper, smoothCurve, "--r", label="Smoothed Histogram")
+    ax.plot(maximaLoc, hSkipper[maximaIndex], "ob", label="Maxima")
+    ax.plot(minimaLoc, hSkipper[minimaIndex], "oc", label="Minima")
+    ax.set_xlabel("Pixel Value [ADU]", fontsize=16)
+
+    # Perform fit over all fit ranges
+    gausfunc = lambda x, *p: p[0] * np.exp(-(x - p[1]) ** 2 / (2 * p[2] ** 2))
+    vParam = []    
+    nElectrons = len(fitMean) - 1
+    vNElectrons = []
+    vNPixels = []
+    for i in range(len(fitMean)):
+        # Keep only data in the fit range
+        fitIndex = (bincSkipper >= fitMin[i]) * (bincSkipper <= fitMax[i])
+        fitXRange = bincSkipper[np.nonzero(fitIndex)]
+        fitSkipperValues = hSkipper[np.nonzero(fitIndex)]
+
+        paramGuess = [
+            hSkipper[np.nonzero(bincSkipper == fitMean[i])][0],
+            fitMean[i],
+            (fitMax[i] - fitMin[i]) / 6,
+        ]
+
+        # Perform fit
+        try:
+            paramOpt, cov = optimize.curve_fit(
+                gausfunc, fitXRange, fitSkipperValues, p0=paramGuess
+            )
+            vParam.append(paramOpt)
+            x = np.linspace(bincSkipper[0], bincSkipper[-1], 1000)
+            if i == 0:
+                ax.plot(x, gausfunc(x, *paramOpt), 'k', linewidth=2, label="Single Electron Peak Fit")
+            else:
+                ax.plot(x, gausfunc(x, *paramOpt), 'k', linewidth=2,)
+
+            vNElectrons.append(nElectrons)
+            vNPixels.append( paramOpt[0] * np.sqrt(2 * np.pi * paramOpt[2]**2) )
+        except:
+            pass
+        nElectrons -= 1
+
+    ax.legend(fontsize=14)
+    # Perform the Poissoin fit to the integral
+    fig2, ax2 = plt.subplots(1, 1, figsize=(12, 9))
+    vNElectrons.insert(0, vNElectrons[0]+1)
+    vNPixels.insert(0, 0)
+    poissonMean = np.sum([x * y for x, y in zip(vNElectrons, vNPixels)]) / np.sum(vNPixels)
+    
+    print(poissonMean)
+
+    poissonfunc = lambda k, lamb: (lamb**k/factorial(k)) * np.exp(-lamb)
+    poissonParam, _ = optimize.curve_fit(poissonfunc, np.array(vNElectrons), np.array(vNPixels)/np.sum(vNPixels), p0=poissonMean)
+    print(poissonParam)
+    ax2.plot(vNElectrons, vNPixels, "-o", label="True Values")
+    ax2.plot(vNElectrons, np.sum(vNPixels)*scipy.stats.poisson.pmf(vNElectrons, poissonMean), '-ok', label="Poisson MLE")
+    ax2.plot(vNElectrons, np.sum(vNPixels)*poissonfunc(vNElectrons, *poissonParam), "-ob", label="Poisson Fit")
+    ax2.set_xlabel("Charge [e-]", fontsize=16)
+    ax2.set_ylabel("Number of Pixels", fontsize=16)
+    ax2.legend(fontsize=14)
+    plt.show()
+
+
+
+def findPeakPosition(histogram, bins, nMovingAverage=10):
+    """
+        Smooths the histogram of pixel values and searches for peaks (maxima and minima) position
+    """
+
+    # Smooth Data
+    smoothCurve = np.convolve(
+        histogram, np.ones(nMovingAverage) / nMovingAverage, mode="same"
+    )
+
+    # Peak find on smoothed data
+    derivative = np.diff(smoothCurve)
+    maximaIndex = np.nonzero(
+        np.hstack((0, (derivative[:-1] > 0) * (derivative[1:] < 0), 0))
+    )
+    minimaIndex = np.nonzero(
+        np.hstack((0, (derivative[:-1] < 0) * (derivative[1:] > 0), 0))
+    )
+    maximaLoc = bins[maximaIndex]
+    minimaLoc = bins[minimaIndex]
+
+    return maximaLoc, minimaLoc
 
 
 def computeImageTailRatio(image, nsigma=4.):
@@ -241,11 +364,17 @@ def histogramImage(image, nsigma=3, minRange=None):
     return val, centers, edges
 
 
+# def poisson_gaus_log_likelihood(x, ):
+
+
+
+
 if __name__ == "__main__":
 
-    filename = "../Img_10.fits"
+    filename = "../Img_11.fits"
 
-    _, data = readFits.read(filename)
+    header, data = readFits.read(filename)
+
 
     # Test entopy slope
     # slope, err, entropy = imageEntropySlope(data[:,:,:25])
@@ -258,8 +387,11 @@ if __name__ == "__main__":
     # print(computeImageNoise(data[:,:,:-1], maxNskips=25))
 
     # Test cluster variance distribution
-    print(computeImageTailRatio(data[:,:,:-1]))
-    print(computeImageTailRatio(np.random.normal(10000, 60, data.shape)))
+    # print(computeImageTailRatio(data[:,:,:-1]))
+    # print(computeImageTailRatio(np.random.normal(10000, 60, data.shape)))
 
     # sigma = computeSkImageNoise(data[:, :, -1], nMovingAverage=5)
     # plt.show()
+
+    # Test dark current
+    computeDarkCurrent(data[:, :, -1], header, nMovingAverage=5)
