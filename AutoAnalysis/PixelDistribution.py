@@ -79,8 +79,7 @@ def computeImageNoise(skImage, maxNskips=50):
     for i in range(nskips):
 
         # Create histogram of pixels
-        med = np.median(skImage[:, :, i])
-        mad = scipy.stats.median_absolute_deviation(skImage[:, :, i], axis=None)
+        med, mad = estimateDistributionParameters(skImage[:, :, i])
         bins = np.arange(med - 3 * mad, med + 3 * mad)
         y, xedges = np.histogram(skImage[:, :, i], bins=bins)
         xcenter = xedges[:-1] + np.diff(xedges)[0]
@@ -227,8 +226,7 @@ def histogramImage(image, nsigma=3, minRange=None):
 		edges - (nbins+1, ) numpy array of the bin edges
 	"""
 
-    med = np.median(image)
-    mad = scipy.stats.median_absolute_deviation(image, axis=None)
+    med, mad = estimateDistributionParameters(image)
 
     # Create bins. +/- 3*mad
     if minRange and 2*nsigma*mad < minRange:
@@ -240,6 +238,26 @@ def histogramImage(image, nsigma=3, minRange=None):
 
     return val, centers, edges
 
+def estimateDistributionParameters(image, ):
+    """
+    Utility function to compute the median and mad of an image used to build the histograms. Includes a few logical checks
+    regarding saturated (0 ADU) pixels
+    Inputs:
+        image - (n x m x k) ndarray containing pixel values. This gets flattened so the original shape does not get retained
+    Outputs:
+        median - double of the median value of the pixels excluding zeros (saturated)
+        mad - double of the median absolute deviation of the pixels excluding zeros
+    """
+
+
+    if np.all( image <= 0 ):
+        # If all pixels are saturated, median = 0, mad = 1
+        return 0, 1
+    else:
+        med = np.median(image[image > 0])
+        mad = scipy.stats.median_absolute_deviation(image[image > 0], axis=None)
+
+    return med, mad
 
 if __name__ == "__main__":
 
