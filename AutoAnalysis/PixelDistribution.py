@@ -171,20 +171,17 @@ def computeDarkCurrent(image, header, nMovingAverage=10):
     fitMax = []
     fitMean = []
 
-    # Make sure we have the same number of minima and maxima (to correctly find all peaks)
-    if minimaLoc.size < maximaLoc.size:
-        maximaLoc = maximaLoc[maximaLoc.size-minimaLoc.size:]
-
     for i in range(minimaLoc.size):
         # Get fit ranges for a given peak
-        fitMin.append(minimaLoc[i])
         fitMean.append(maximaLoc[i])
-
-        # Last peak (0 electron) requires some special attention because a minima is not found to the right of the peak
         try:
-            fitMax.append(minimaLoc[i+1])
+            fitDelta = maximaLoc[i+1] - maximaLoc[i]
         except IndexError:
-            fitMax.append(2 * maximaLoc[i] - minimaLoc[i])
+            fitDelta = maximaLoc[i] - maximaLoc[i-1]
+        fitMax.append(maximaLoc[i] + fitDelta / 2)
+        fitMin.append(maximaLoc[i] - fitDelta / 2)
+
+
 
 
     # Debugging plots
@@ -209,10 +206,11 @@ def computeDarkCurrent(image, header, nMovingAverage=10):
     ax.plot(minimaLoc, hSkipper[minimaIndex], "oc", label="Minima")
     ax.set_xlabel("Pixel Value [ADU]", fontsize=16)
 
-    # Perform fit over all fit ranges
+    # Perform guass fit over all fit ranges
     gausfunc = lambda x, *p: p[0] * np.exp(-(x - p[1]) ** 2 / (2 * p[2] ** 2))
     vParam = []    
-    nElectrons = len(fitMean) - 1
+    # nElectrons = len(fitMean) - 1
+    nElectrons = 0
     vNElectrons = []
     vNPixels = []
     for i in range(len(fitMean)):
@@ -243,13 +241,14 @@ def computeDarkCurrent(image, header, nMovingAverage=10):
             vNPixels.append( paramOpt[0] * np.sqrt(2 * np.pi * paramOpt[2]**2) )
         except:
             pass
-        nElectrons -= 1
+        # nElectrons -= 1
+        nElectrons += 1
 
     ax.legend(fontsize=14)
     # Perform the Poissoin fit to the integral
     fig2, ax2 = plt.subplots(1, 1, figsize=(12, 9))
-    vNElectrons.insert(0, vNElectrons[0]+1)
-    vNPixels.insert(0, 0)
+    vNElectrons.append(vNElectrons[-1]+1)
+    vNPixels.append(0)
     poissonMean = np.sum([x * y for x, y in zip(vNElectrons, vNPixels)]) / np.sum(vNPixels)
     
     print(poissonMean)
@@ -378,7 +377,8 @@ def estimateDistributionParameters(image, ):
         return 0, 1
     else:
         med = np.median(image[image > 0])
-        mad = scipy.stats.median_absolute_deviation(image[image > 0], axis=None)
+        # Ensure that the mad is not zero
+        mad = np.max([scipy.stats.median_absolute_deviation(image[image > 0], axis=None), 1])
 
     return med, mad
 
@@ -389,7 +389,7 @@ def estimateDistributionParameters(image, ):
 
 if __name__ == "__main__":
 
-    filename = "../Img_11.fits"
+    filename = "../FS_Avg_Img_10.fits"
 
     header, data = readFits.read(filename)
 
