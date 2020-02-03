@@ -15,8 +15,16 @@ def read(filename):
     # Get numpy of rows, columns, and skips
     header = fitsImg[0].header
     nrows = header["NAXIS2"]
-    nskips = header["NDCMS"]
-    ncolumns = header["NAXIS1"] // nskips
+
+
+    # Average image fits does not have an NDCMS key
+    try:
+        nskips = header["NDCMS"]
+    except KeyError:
+        nskips = 1
+
+    ncolumns = header["NAXIS1"] // nskips   
+
 
     # Get data and put it in the shape we want
     data = fitsImg[0].data
@@ -32,7 +40,7 @@ def read(filename):
 
 if __name__ == "__main__":
     # Testing the read function
-    fitsFilename = "../Img_07.fits"
+    fitsFilename = "../Img_11.fits"
     header, data = read(fitsFilename)
     colors = palettable.scientific.sequential.Devon_20.mpl_colormap
 
