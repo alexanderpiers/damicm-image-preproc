@@ -129,8 +129,8 @@ def computeSkImageNoise(damicImage, nMovingAverage=10):
     if maximaLoc.size > 1:
         fitDelta = np.abs(np.mean(np.diff(maximaLoc)))
     else:
-        fitDelta = damicImage.mad
-        
+        fitDelta = 2*damicImage.mad
+
     for i in range(maximaLoc.size):
         # Get fit ranges for a given peak
         fitMean.append(maximaLoc[i])
@@ -182,7 +182,11 @@ def computeDarkCurrent(damicImage, nMovingAverage=10):
     fitMax = []
     fitMean = []
 
-    fitDelta = np.mean(np.diff(maximaLoc))
+    # Find the fit range (choose the appropriate maxima and minima)
+    if maximaLoc.size > 1:
+        fitDelta = np.abs(np.mean(np.diff(maximaLoc)))
+    else:
+        fitDelta = 2*damicImage.mad
     for i in range(maximaLoc.size):
         # Get fit ranges for a given peak
         fitMean.append(maximaLoc[i])
