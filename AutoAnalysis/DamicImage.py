@@ -3,21 +3,29 @@ import matplotlib.pyplot as plt
 import readFits
 import scipy.stats
 
+
 class Image(object):
-	"""docstring for Image"""
-	def __init__(self, img, filename="", minRange=None):
-		super(Image, self).__init__()
-		self.image = img
-		self.filename = filename
+    """
+	Image Class
+	
+	Used to store 2D numpy (N x M) arrays along with some statistical properties of the image (med, mad, histogram) etc.
+	Provides some utility so that these values do not need to be continously recomputed.
 
-		# Compute usefule statistics on the image
-		self.estimateDistributionParameters()
-		self.histogramImage(minRange=minRange)
+	Use:
+		image = DamicImage(data, filename=<string>, minRange=<double>)
+	"""
 
+    def __init__(self, img, filename="", minRange=None):
+        super(Image, self).__init__()
+        self.image = img
+        self.filename = filename
 
+        # Compute usefule statistics on the image
+        self.estimateDistributionParameters()
+        self.histogramImage(minRange=minRange)
 
-	def estimateDistributionParameters(self,):
-	    """
+    def estimateDistributionParameters(self,):
+        """
 	    Utility function to compute the median and mad of an image used to build the histograms. Includes a few logical checks
 	    regarding saturated (0 ADU) pixels
 	    Inputs:
@@ -27,19 +35,25 @@ class Image(object):
 	        mad - double of the median absolute deviation of the pixels excluding zeros
 	    """
 
+        if np.all(self.image <= 0):
+            # If all pixels are saturated, median = 0, mad = 1
+            self.med = 0
+            self.mad = 1
+        else:
+            self.med = np.median(self.image[self.image > 0])
+            self.mad = np.max(
+                [
+                    scipy.stats.median_absolute_deviation(
+                        self.image[self.image > 0], axis=None
+                    ),
+                    1,
+                ]
+            )
 
-	    if np.all( self.image <= 0 ):
-	        # If all pixels are saturated, median = 0, mad = 1
-	        self.med = 0
-	        self.mad = 1
-	    else:
-	        self.med = np.median(self.image[self.image > 0])
-	        self.mad = np.max([scipy.stats.median_absolute_deviation(self.image[self.image > 0], axis=None), 1])
+        return self.med, self.mad
 
-	    return self.med, self.mad
-
-	def histogramImage(self, nsigma=3, minRange=None):
-	    """
+    def histogramImage(self, nsigma=3, minRange=None):
+        """
 		Creates a histogram of an image (or any data set) of a reasonable range with integer (ADU) spaced bins
 		Inputs:
 			nsigma - number of median absolute deviations around the median we histogram
@@ -50,57 +64,70 @@ class Image(object):
 			edges - (nbins+1, ) numpy array of the bin edges
 		"""
 
+        # Create bins. +/- 3*mad
+        if minRange and 2 * nsigma * self.mad < minRange:
+            bins = np.arange(
+                np.floor(self.med - minRange / 2), np.ceil(self.med + minRange / 2)
+            )
+        else:
+            bins = np.arange(
+                np.floor(self.med - nsigma * self.mad),
+                np.ceil(self.med + nsigma * self.mad),
+            )
 
-	    # Create bins. +/- 3*mad
-	    if minRange and 2*nsigma*self.mad < minRange:
-	    	bins = np.arange(np.floor(self.med - minRange/2), np.ceil(self.med + minRange/2))
-	    else:
-		    bins = np.arange(np.floor(self.med - nsigma * self.mad), np.ceil(self.med + nsigma * self.mad))
-	   
-	    hpix, edges = np.histogram(self.image, bins=bins)
-	    centers = edges[:-1] + np.diff(edges)[0] / 2
+        hpix, edges = np.histogram(self.image, bins=bins)
+        centers = edges[:-1] + np.diff(edges)[0] / 2
 
-	    self.hpix, self.centers, self.edges = hpix, centers, edges
+        self.hpix, self.centers, self.edges = hpix, centers, edges
 
-	    return hpix, centers, edges
+        return hpix, centers, edges
 
-
-	
-		
 
 class DamicImage(Image):
-	"""docstring for SkipperImage"""
-	def __init__(self, img, reverse=True, filename="", minRange=200):
+    """
+		DamicImage Class
 
-		super(DamicImage, self).__init__(img, filename=filename, minRange=minRange)
-		self.reverse = reverse
+		Extended utility to the image class to allow both "raw" and "processed average" images to be used by the other analysis functions.
+		Depending on what processing as been done, increasing number of electrons may increase (normal) or decrease (reverse) the pixel value, 
+		so the reverse flag allows conversion from reverse into normal. All histograms should be in the "normal" schema for further procccessing
 
-		if self.reverse: self.reverseHistogram();
+		Use:
+			image = DamicImage(data, reverse=<bool>, filename=<string>, minRange=<double>)
+	"""
 
-	def reverseHistogram(self):
+    def __init__(self, img, reverse=True, filename="", minRange=200):
 
-		# Shifts the histogram axis (centers and edges) to be centered around zero and flips the values
-		self.hpix = np.flip(self.hpix)
-		# self.centers = (self.centers - self.med)
-		# self.edges = (self.edges - self.med)
+        super(DamicImage, self).__init__(img, filename=filename, minRange=minRange)
+        self.reverse = reverse
 
-		
+        if self.reverse:
+            self.reverseHistogram()
 
-if __name__ == '__main__':
+    def reverseHistogram(self):
 
-	# Test to see if reversing image works
-	imgname = "../Img_11.fits"
+        # Shifts the histogram axis (centers and edges) to be centered around zero and flips the values
+        self.hpix = np.flip(self.hpix)
+        # self.centers = (self.centers - self.med)
+        # self.edges = (self.edges - self.med)
 
-	header, data = readFits.read(imgname)
 
-	normalImage = DamicImage(data[:,:,-1], False, "normalImage test")
-	reverseImage = DamicImage(data[:,:,-1], True, "forward test")
+if __name__ == "__main__":
 
-	normalImage.histogramImage(minRange=80)
-	reverseImage.histogramImage(minRange=80)
-	reverseImage.reverseHistogram()
+    # Test to see if reversing image works
+    imgname = "../Img_11.fits"
 
-	fig, axs = plt.subplots(1, 2, figsize=(14,8))
-	axs[0].hist(normalImage.centers, weights=normalImage.hpix, bins=normalImage.edges)
-	axs[1].hist(reverseImage.centers, weights=reverseImage.hpix, bins=reverseImage.edges)
-	plt.show()
+    header, data = readFits.read(imgname)
+
+    normalImage = DamicImage(data[:, :, -1], False, "normalImage test")
+    reverseImage = DamicImage(data[:, :, -1], True, "forward test")
+
+    normalImage.histogramImage(minRange=80)
+    reverseImage.histogramImage(minRange=80)
+    reverseImage.reverseHistogram()
+
+    fig, axs = plt.subplots(1, 2, figsize=(14, 8))
+    axs[0].hist(normalImage.centers, weights=normalImage.hpix, bins=normalImage.edges)
+    axs[1].hist(
+        reverseImage.centers, weights=reverseImage.hpix, bins=reverseImage.edges
+    )
+    plt.show()
