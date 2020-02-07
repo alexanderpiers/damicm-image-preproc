@@ -178,48 +178,20 @@ def computeDarkCurrent(damicImage, nMovingAverage=10):
     fitMax = []
     fitMean = []
 
-    for i in range(minimaLoc.size):
+    fitDelta = np.mean(np.diff(maximaLoc))
+    for i in range(maximaLoc.size):
         # Get fit ranges for a given peak
         fitMean.append(maximaLoc[i])
-        try:
-            fitDelta = maximaLoc[i+1] - maximaLoc[i]
-        except IndexError:
-            fitDelta = maximaLoc[i] - maximaLoc[i-1]
         fitMax.append(maximaLoc[i] + fitDelta / 2)
         fitMin.append(maximaLoc[i] - fitDelta / 2)
 
 
-
-
-    # Debugging plots
-    # Smooth Data
-    smoothCurve = np.convolve(
-        hSkipper, np.ones(nMovingAverage) / nMovingAverage, mode="same"
-    )
-    # Peak find on smoothed data
-    derivative = np.diff(smoothCurve)
-    maximaIndex = np.nonzero(
-        np.hstack((0, (derivative[:-1] > 0) * (derivative[1:] < 0), 0))
-    )
-    minimaIndex = np.nonzero(
-        np.hstack((0, (derivative[:-1] < 0) * (derivative[1:] > 0), 0))
-    )
-    maximaLoc = bincSkipper[maximaIndex]
-    minimaLoc = bincSkipper[minimaIndex]
-    fig, ax = plt.subplots(1, 1, figsize=(12,9))
-    ax.plot(bincSkipper, hSkipper, "*k", label="Pixel Histogram")
-    ax.plot(bincSkipper, smoothCurve, "--r", label="Smoothed Histogram")
-    ax.plot(maximaLoc, hSkipper[maximaIndex], "ob", label="Maxima")
-    ax.plot(minimaLoc, hSkipper[minimaIndex], "oc", label="Minima")
-    ax.set_xlabel("Pixel Value [ADU]", fontsize=16)
-
     # Perform guass fit over all fit ranges
     gausfunc = lambda x, *p: p[0] * np.exp(-(x - p[1]) ** 2 / (2 * p[2] ** 2))
     vParam = []    
-    # nElectrons = len(fitMean) - 1
-    nElectrons = 0
     vNElectrons = []
     vNPixels = []
+    nElectrons = 0
     for i in range(len(fitMean)):
         # Keep only data in the fit range
         fitIndex = (bincSkipper >= fitMin[i]) * (bincSkipper <= fitMax[i])
@@ -237,43 +209,35 @@ def computeDarkCurrent(damicImage, nMovingAverage=10):
             paramOpt, cov = optimize.curve_fit(
                 gausfunc, fitXRange, fitSkipperValues, p0=paramGuess
             )
-            vParam.append(paramOpt)
-            x = np.linspace(bincSkipper[0], bincSkipper[-1], 1000)
-            if i == 0:
-                ax.plot(x, gausfunc(x, *paramOpt), 'k', linewidth=2, label="Single Electron Peak Fit")
-            else:
-                ax.plot(x, gausfunc(x, *paramOpt), 'k', linewidth=2,)
 
+            # Append results of the fit (nelectrons, fit parameters, number of pixels with that number of electrons)
+            vParam.append(paramOpt)
             vNElectrons.append(nElectrons)
             vNPixels.append( paramOpt[0] * np.sqrt(2 * np.pi * paramOpt[2]**2) )
+
         except:
             pass
-        # nElectrons -= 1
         nElectrons += 1
 
-    ax.legend(fontsize=14)
     # Perform the Poissoin fit to the integral
-    fig2, ax2 = plt.subplots(1, 1, figsize=(12, 9))
-    vNElectrons.append(vNElectrons[-1]+1)
-    vNPixels.append(0)
-    poissonMean = np.sum([x * y for x, y in zip(vNElectrons, vNPixels)]) / np.sum(vNPixels)
-    
-    print(poissonMean)
+    try:
+        # Add a zero number of pixels to the next electron bin
+        vNElectrons.append(vNElectrons[-1]+1)
+        vNPixels.append(0)
 
-    poissonfunc = lambda k, lamb: (lamb**k/factorial(k)) * np.exp(-lamb)
-    poissonParam, _ = optimize.curve_fit(poissonfunc, np.array(vNElectrons), np.array(vNPixels)/np.sum(vNPixels), p0=poissonMean)
-    print(poissonParam)
-    ax2.plot(vNElectrons, vNPixels, "-o", label="True Values")
-    ax2.plot(vNElectrons, np.sum(vNPixels)*scipy.stats.poisson.pmf(vNElectrons, poissonMean), '-ok', label="Poisson MLE")
-    ax2.plot(vNElectrons, np.sum(vNPixels)*poissonfunc(vNElectrons, *poissonParam), "-ob", label="Poisson Fit")
-    ax2.set_xlabel("Charge [e-]", fontsize=16)
-    ax2.set_ylabel("Number of Pixels", fontsize=16)
-    ax2.legend(fontsize=14)
-    plt.show()
+        # Perform fit to poisson distribution
+        poissonMean = np.sum([x * y for x, y in zip(vNElectrons, vNPixels)]) / np.sum(vNPixels)
+        poissonfunc = lambda k, lamb: (lamb**k/factorial(k)) * np.exp(-lamb)
+        poissonParam, poissonCov = optimize.curve_fit(poissonfunc, np.array(vNElectrons), np.array(vNPixels)/np.sum(vNPixels), p0=poissonMean)
+ 
+    except:
+        return -1, -1
+
+    return poissonParam[0], np.sqrt(poissonCov[0][0])
 
 
 
-def findPeakPosition(histogram, bins, nMovingAverage=10):
+def findPeakPosition(histogram, bins, nMovingAverage=10, dthresh=2):
     """
         Smooths the histogram of pixel values and searches for peaks (maxima and minima) position
     """
@@ -285,11 +249,12 @@ def findPeakPosition(histogram, bins, nMovingAverage=10):
 
     # Peak find on smoothed data
     derivative = np.diff(smoothCurve)
+    dthresh /= nMovingAverage
     maximaIndex = np.nonzero(
-        np.hstack((0, (derivative[:-1] > 0) * (derivative[1:] < 0), 0))
+        np.hstack((0, (derivative[:-1] > dthresh) * (derivative[1:] < -dthresh), 0))
     )
     minimaIndex = np.nonzero(
-        np.hstack((0, (derivative[:-1] < 0) * (derivative[1:] > 0), 0))
+        np.hstack((0, (derivative[:-1] < -dthresh) * (derivative[1:] > dthresh), 0))
     )
     maximaLoc = bins[maximaIndex]
     minimaLoc = bins[minimaIndex]
@@ -297,7 +262,7 @@ def findPeakPosition(histogram, bins, nMovingAverage=10):
     return maximaLoc, minimaLoc
 
 
-def computeImageTailRatio(image, nsigma=4.):
+def computeImageTailRatio(damicimage, nsigma=4.):
     """
 	Calculates the ratio of the number of pixels in the left tail of the distribution to the number expected if it was
 	just gaussian noise

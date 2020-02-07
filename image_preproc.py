@@ -28,6 +28,7 @@ class AnalysisOutput(object):
         self.tailRatio = -1
         self.imgNoise = -1
         self.skNoise = -1
+        self.darkCurrent = -1
 
         self.filename = filename
         self.header = list(header)
@@ -150,6 +151,13 @@ def processImage(filename, headerString):
     processedImage.clustVar = imageNoiseVariance
     processedImage.tailRatio = pd.computeImageTailRatio(image)
 
+    # Compute Dark current
+    # if nskips > 1000:
+    darkCurrent, darkCurrentErr = pd.computeDarkCurrent(image, nMovingAverage=nSmoothing) 
+    # else:
+    #     darkCurrent, darkCurrentErr = -1, -1
+    processedImage.darkCurrent = pd.convertValErrToString((darkCurrent, darkCurrentErr))
+
     return processedImage
 
 
@@ -221,9 +229,8 @@ def main(argv):
         "dSdskip",
         "imgNoise",
         "skNoise",
-        "pixVar",
-        "clustVar",
         "tailRatio",
+        "darkCurrent"
     ]
 
 
