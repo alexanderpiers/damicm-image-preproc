@@ -9,7 +9,9 @@ sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), "AutoAn
 import readFits
 import PixelDistribution as pd
 import PixelStats as ps
+import DamicImage
 import constants as c
+
 
 
 class AnalysisOutput(object):
@@ -112,7 +114,14 @@ def processImage(filename, headerString):
     # Read image
     header, data = readFits.read(filename)
 
-    nskips = header["NDCMS"]
+    try:
+        nskips = header["NDCMS"]
+    except KeyError:
+        nskips = 1
+
+    # Create skipper 
+    reverseHistogram = (1, 0)["Avg" in filename]
+    image = DamicImage.DamicImage(data[:,:,-1], reverse=reverseHistogram)
 
     processedImage = AnalysisOutput(
         filename, nskips=nskips, header=headerString, 
@@ -127,8 +136,8 @@ def processImage(filename, headerString):
 
     # Compute Overall image noise (fit to entire image) and skipper noise
     processedImage.imgNoise = pd.computeImageNoise(data[:, :, :-1])
-    nSmoothing = 4 if nskips > 1 else 12 # need less agressive moving average on skipper images
-    skImageNoise, skImageNoiseErr = pd.computeSkImageNoise(data[:, :, -1], nMovingAverage=nSmoothing)
+    nSmoothing = 4 if nskips > 1000 else 8 # need less agressive moving average on skipper images
+    skImageNoise, skImageNoiseErr = pd.computeSkImageNoise(image, nMovingAverage=nSmoothing)
     processedImage.skNoise = pd.convertValErrToString((skImageNoise, skImageNoiseErr))
 
     # Compute pixel noise metrics
@@ -139,7 +148,7 @@ def processImage(filename, headerString):
     )
     processedImage.pixVar = singlePixelVariance
     processedImage.clustVar = imageNoiseVariance
-    processedImage.tailRatio = pd.computeImageTailRatio(data[:, :, :-1])
+    processedImage.tailRatio = pd.computeImageTailRatio(image)
 
     return processedImage
 

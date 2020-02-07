@@ -5,6 +5,7 @@ import readFits
 import matplotlib.pyplot as plt
 import PixelStats as ps
 from scipy.special import factorial
+import DamicImage
 
 
 def imageEntropy(image):
@@ -95,7 +96,7 @@ def computeImageNoise(skImage, maxNskips=50):
     return np.mean(imageNoiseVec)
 
 
-def computeSkImageNoise(image, nMovingAverage=10):
+def computeSkImageNoise(damicImage, nMovingAverage=10):
     """
 	Computes the noise on single electron measurements. Takes a skipper image, searches for single electron peaks
 	and fits a gaussian function to it
@@ -107,8 +108,9 @@ def computeSkImageNoise(image, nMovingAverage=10):
 		skImageNoiseErr - double, fit error of the standard deviations
 	"""
 
-    # Histogram the image
-    hSkipper, bincSkipper, _ = histogramImage(image, nsigma=6, minRange=100)
+    # Get histogram information
+    hSkipper = damicImage.hpix
+    bincSkipper = damicImage.centers
 
     # Find the minima and maxima 
     maximaLoc, minimaLoc = findPeakPosition(hSkipper, bincSkipper, nMovingAverage=nMovingAverage)
@@ -119,26 +121,29 @@ def computeSkImageNoise(image, nMovingAverage=10):
     # ax.plot(maximaLoc, hSkipper[maximaIndex], "*b")
     # ax.plot(minimaLoc, hSkipper[minimaIndex], "*g")
 
+    # Define the different fit ranges
+    fitMin = []
+    fitMax = []
+    fitMean = []
     # Find the fit range (choose the appropriate maxima and minima)
-    try:
-        fitMin = minimaLoc[-2]
-        fitMax = minimaLoc[-1]
-        fitMean = maximaLoc[-2] if maximaLoc[-1] > minimaLoc[-1] else maximaLoc[-1]
-    except:
-	    print("could not find enough minima and maxima")
-	    return -1, -1
+    fitDelta = np.abs(np.mean(np.diff(maximaLoc)))
+    for i in range(maximaLoc.size):
+        # Get fit ranges for a given peak
+        fitMean.append(maximaLoc[i])
+        fitMax.append(maximaLoc[i] + fitDelta / 2)
+        fitMin.append(maximaLoc[i] - fitDelta / 2)
 
     # Keep only data in the fit range
-    fitIndex = (bincSkipper >= fitMin) * (bincSkipper <= fitMax)
+    fitIndex = (bincSkipper >= fitMin[0]) * (bincSkipper <= fitMax[0])
     fitXRange = bincSkipper[np.nonzero(fitIndex)]
     fitSkipperValues = hSkipper[np.nonzero(fitIndex)]
 
     # Fit peak with gaussian
     gausfunc = lambda x, *p: p[0] * np.exp(-(x - p[1]) ** 2 / (2 * p[2] ** 2))
     paramGuess = [
-        hSkipper[np.nonzero(bincSkipper == fitMean)][0],
-        fitMean,
-        (fitMax - fitMin) / 6,
+        hSkipper[np.nonzero(bincSkipper == fitMean[0])][0],
+        fitMean[0],
+        (fitMax[0] - fitMin[0]) / 6,
     ]
     try:
         paramOpt, cov = optimize.curve_fit(
@@ -155,13 +160,15 @@ def computeSkImageNoise(image, nMovingAverage=10):
     skImageNoiseErr = np.sqrt(cov[2, 2])
     return skImageNoise, skImageNoiseErr
 
-def computeDarkCurrent(image, header, nMovingAverage=10):
+def computeDarkCurrent(damicImage, nMovingAverage=10):
     """
         Computes the dark current in a skipper image. Takes the integral of each peak and fits to a poisson distribution
         to get mean number of electrons per pixel per exposure.
     """
 
-    hSkipper, bincSkipper, _ = histogramImage(image, nsigma=6, minRange=100)
+     # Get histogram information
+    hSkipper = damicImage.hpix
+    bincSkipper = damicImage.centers
 
     # Find minima and maxima
     maximaLoc, minimaLoc = findPeakPosition(hSkipper, bincSkipper, nMovingAverage=nMovingAverage)
@@ -302,25 +309,30 @@ def computeImageTailRatio(image, nsigma=4.):
 
 	"""
 
-    imageH, imageBinCenters, imageBinEdges = histogramImage(image, nsigma=nsigma)
+    # Get histogram parameters
+    hpix = damicimage.hpix
+    bincenters = damicimage.centers
+    binedges = damicimage.edges
 
     # Fit cluster variance to a gaussian
     gausfunc = lambda x, *p: p[0] * np.exp(-(x - p[1]) ** 2 / (2 * p[2] ** 2))
-    sigmaGuess = (imageBinEdges[-1] - imageBinEdges[0]) / (2 * nsigma)
+    meanGuess = np.average(bincenters, weights=hpix)
+    sigmaGuess = np.sqrt( np.average((bincenters - meanGuess) **2, weights=hpix) )
+
     paramGuess = [
-        np.sum(imageH) / np.sqrt(2 * np.pi * sigmaGuess ** 2),
-        imageBinCenters[imageBinCenters.size // 2],
+        np.sum(hpix) / np.sqrt(2 * np.pi * sigmaGuess ** 2),
+        meanGuess,
         sigmaGuess,
     ]
     paramOpt, paramCov = optimize.curve_fit(
-        gausfunc, imageBinCenters, imageH, p0=paramGuess
+        gausfunc, bincenters, hpix, p0=paramGuess
     )
 
     # Compute the ratio between the tails of the fit and data
-    tailLoc = paramOpt[1] - nsigma * paramOpt[2]
-    tailRatio = np.sum(image < tailLoc) / (
-        image.size
-        * (scipy.stats.norm.cdf(tailLoc, loc=paramOpt[1], scale=paramOpt[2]))
+    tailLoc = paramOpt[1] + nsigma * paramOpt[2]
+    tailRatio = np.sum(damicimage.image > tailLoc) / (
+        damicimage.image.size
+        * (scipy.stats.norm.sf(tailLoc, loc=paramOpt[1], scale=paramOpt[2]))
     )
 
     return tailRatio
@@ -408,8 +420,15 @@ if __name__ == "__main__":
     # print(computeImageTailRatio(data[:,:,:-1]))
     # print(computeImageTailRatio(np.random.normal(10000, 60, data.shape)))
 
-    # sigma = computeSkImageNoise(data[:, :, -1], nMovingAverage=5)
     # plt.show()
 
     # Test dark current
-    computeDarkCurrent(data[:, :, -1], header, nMovingAverage=5)
+    damicimage = DamicImage.DamicImage(data[:,:,-1], reverse=True)
+    sigma = computeSkImageNoise(damicimage, nMovingAverage=5)
+    plt.hist(damicimage.centers, bins=damicimage.edges, weights=damicimage.hpix)
+    plt.show()
+
+    pois, err = computeDarkCurrent(damicimage, nMovingAverage=5)
+    print(convertValErrToString((pois, err)))
+
+
