@@ -16,15 +16,13 @@ def read(filename):
     header = fitsImg[0].header
     nrows = header["NAXIS2"]
 
-
     # Average image fits does not have an NDCMS key
     try:
         nskips = header["NDCMS"]
     except KeyError:
         nskips = 1
 
-    ncolumns = header["NAXIS1"] // nskips   
-
+    ncolumns = header["NAXIS1"] // nskips
 
     # Get data and put it in the shape we want
     data = fitsImg[0].data
