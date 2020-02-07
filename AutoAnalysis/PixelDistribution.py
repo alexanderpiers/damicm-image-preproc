@@ -126,7 +126,11 @@ def computeSkImageNoise(damicImage, nMovingAverage=10):
     fitMax = []
     fitMean = []
     # Find the fit range (choose the appropriate maxima and minima)
-    fitDelta = np.abs(np.mean(np.diff(maximaLoc)))
+    if maximaLoc.size > 1:
+        fitDelta = np.abs(np.mean(np.diff(maximaLoc)))
+    else:
+        fitDelta = damicImage.mad
+        
     for i in range(maximaLoc.size):
         # Get fit ranges for a given peak
         fitMean.append(maximaLoc[i])
@@ -149,7 +153,7 @@ def computeSkImageNoise(damicImage, nMovingAverage=10):
         paramOpt, cov = optimize.curve_fit(
             gausfunc, fitXRange, fitSkipperValues, p0=paramGuess
         )
-    except (RuntimeError, optimize.OptimizeWarning) as e:
+    except (RuntimeError, optimize.OptimizeWarning, ValueError) as e:
         return -1, -1
 
     # x = np.linspace(fitMin, fitMax, 100)
