@@ -26,13 +26,12 @@ plt.close()
 #mask
 radius = 1
 
-peak0 = tk.approxPeak(image,0)
-estimatedLamda = tk.calcLamda(n,peak0,image.size)
-threshold = tk.calcThreshold(estimatedLamda,image.size)
+estimatedLamda = tk.calcLamda(n,bins)
+threshold = tk.calcThreshold(estimatedLamda,n,bins)
 print('estimatedLamda =',estimatedLamda)
 print('threshold = ',threshold)
 
-mask1 = tk.mask(normImage,100, radius)
+mask1 = tk.mask(normImage,threshold,radius)
 result = normImage[mask1]
 
 maskedImage = normImage*1

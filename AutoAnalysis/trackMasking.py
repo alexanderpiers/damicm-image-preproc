@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-import CCDMean
+from PixelDistribution import findPeakPosition
 
 
 #Create mask
@@ -38,34 +38,33 @@ def mask(image,threshold,radius):
 
 
 #Estimate Lamda
-def calcLamda(distribution,peak,totalNum):
-    n0 = 0
+def calcLamda(distribution):
+    integral = 0
     accuracy = 0.001
+
+    firstPeak = max(distribution)
+
     i = 0
-    while(n0 < peak or distribution[i]/n0 > accuracy):
-        n0 = n0 + distribution[i]
+    while(integral < firstPeak or distribution[i]/n0 > accuracy):
+        integral = integral + distribution[i]
         i = i+1
     return -np.log(n0/totalNum)
-
-#Could refine
-def approxPeak(image,position):
-    peak = 0
-    for i in range(image.shape[0]):
-        for j in range(image.shape[1]):
-            if(image[i,j] > position-0.1 and image[i,j] < position+0.1):
-                peak = peak + 1
-    return peak
 
 
 
 #Estimate threshold
-def calcThreshold(lamda,totalNum):
+def calcThreshold(lamda,distribution,bins):
+
+    sort = distribution.sort()
+    index1 = np.argwhere(distribution,sort[-1])
+    index2 = np.argwhere(distribution,sort[-2])
+
     x = 0
-    sum = 0
-    while(sum < (1-0.1/totalNum)):
-        sum = sum + poisson(lamda,x)
+    cdf = 0
+    while(cdf < (1-0.1/totalNum)):
+        cdf = cdf + poisson(lamda,x)
         x = x+1
-    return (x-1)*10
+    return x*abs((bins[index2]-bins[index1]))
 
 
 def poisson(lamda,x):
