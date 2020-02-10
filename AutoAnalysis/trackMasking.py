@@ -58,12 +58,13 @@ def calcThreshold(lamda,distribution,bins,totalNum):
     sort = np.sort(distribution)
     index1 = np.argwhere(distribution == sort[-1])
     index2 = np.argwhere(distribution == sort[-2])
-
+    print("peak1,peak2,",distribution[index1],distribution[index2])
     x = 0
     cdf = 0
     while(cdf < (1-0.1/totalNum)):
         cdf = cdf + poisson(lamda,x)
         x = x+1
+    print("x,",x)
     return x*abs((bins[index2]-bins[index1])) + bins[index1]
 
 
