@@ -38,7 +38,7 @@ def mask(image,threshold,radius):
 
 
 #Estimate Lamda
-def calcLamda(distribution):
+def calcLamda(distribution, totalNum):
     integral = 0
     accuracy = 0.001
 
@@ -48,15 +48,12 @@ def calcLamda(distribution):
     while(integral < firstPeak or distribution[i]/integral > accuracy):
         integral = integral + distribution[i]
         i = i+1
-    print(firstPeak)
-    print(integral)
-    print(sum(distribution))
-    return -np.log(integral/sum(distribution))
+    return -np.log(integral/totalNum)
 
 
 
 #Estimate threshold
-def calcThreshold(lamda,distribution,bins):
+def calcThreshold(lamda,distribution,bins,totalNum):
 
     sort = np.sort(distribution)
     index1 = np.argwhere(distribution == sort[-1])
@@ -64,7 +61,7 @@ def calcThreshold(lamda,distribution,bins):
 
     x = 0
     cdf = 0
-    while(cdf < (1-0.1/sum(distribution))):
+    while(cdf < (1-0.1/totalNum)):
         cdf = cdf + poisson(lamda,x)
         x = x+1
     return x*abs((bins[index2]-bins[index1])) + bins[index1]
