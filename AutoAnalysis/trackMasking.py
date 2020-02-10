@@ -61,7 +61,7 @@ def calcThreshold(lamda,distribution,bins):
 
     x = 0
     cdf = 0
-    while(cdf < (1-0.1/totalNum)):
+    while(cdf < (1-0.1/sum(distribution))):
         cdf = cdf + poisson(lamda,x)
         x = x+1
     return x*abs((bins[index2]-bins[index1]))
