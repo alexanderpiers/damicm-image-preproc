@@ -55,7 +55,7 @@ def calcLamda(distribution):
 #Estimate threshold
 def calcThreshold(lamda,distribution,bins):
 
-    sort = distribution.sort()
+    sort = np.sort(distribution)
     index1 = np.argwhere(distribution,sort[-1])
     index2 = np.argwhere(distribution,sort[-2])
 
