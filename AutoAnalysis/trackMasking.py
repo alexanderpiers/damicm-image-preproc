@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-from PixelDistribution import findPeakPosition
+#from PixelDistribution import findPeakPosition
 
 
 #Create mask
