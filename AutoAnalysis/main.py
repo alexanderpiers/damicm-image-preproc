@@ -11,7 +11,7 @@ image = fits.getdata("C:/Users/95286/Documents/Python/DAMIC_code/FS_Avg_Img_27.f
 
 normImage = image - np.median(image.reshape(image.size,1))
 
-bins = np.arange(-20,500)+0.5
+bins = np.arange(-20,1000)+0.5
 
 xsize = image.shape[0]
 ysize = image.shape[1]
