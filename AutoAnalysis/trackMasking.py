@@ -49,6 +49,7 @@ def calcLamda(distribution):
         integral = integral + distribution[i]
         i = i+1
     print(firstPeak)
+    print(integral)
     print(sum(distribution))
     return -np.log(integral/sum(distribution))
 
@@ -66,7 +67,7 @@ def calcThreshold(lamda,distribution,bins):
     while(cdf < (1-0.1/sum(distribution))):
         cdf = cdf + poisson(lamda,x)
         x = x+1
-    return x*abs((bins[index2]-bins[index1]))
+    return x*abs((bins[index2]-bins[index1])) + bins[0]
 
 
 def poisson(lamda,x):

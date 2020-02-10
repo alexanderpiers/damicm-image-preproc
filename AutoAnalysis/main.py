@@ -16,7 +16,7 @@ bins = np.arange(-20,300)+0.5
 xsize = image.shape[0]
 ysize = image.shape[1]
 
-
+print("normImage size=",normImage.size)
 n,bins,patches = plt.hist(normImage.reshape(normImage.size,1),bins,density=False)
 plt.close()
 
@@ -41,7 +41,6 @@ for i in range(xsize):
         if(mask1[i,j] == False):
             maskedImage[i,j] = max(normImage.flatten())
 
-print(max(normImage.flatten()))
 
 plt.subplot(2,1,1)
 plt.imshow(normImage,cmap='Greys')
