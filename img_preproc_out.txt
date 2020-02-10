@@ -1,15 +1,15 @@
-filename       nskips    aveImgS  dSdskip            imgNoise  skNoise          pixVar    clustVar    tailRatio
------------  --------  ---------  ---------------  ----------  -------------  --------  ----------  -----------
-Img_00.fits         1      5.45   -1 +/- -1             54.81  0.5 +/- inf        -1          -1         139.3
-Img_01.fits        25      3.093  -4.4 +/- 3.1          26.8   -1 +/- -1      191200         644        2731
-Img_02.fits        25      3.345  -8.5 +/- 6            27.1   7.1 +/- 7.4    235400         636.3      2736
-Img_03.fits        25      3.634  -11 +/- 7.8           27.71  5.4 +/- 0.04   284800         645.6      2758
-Img_04.fits        25      3.811  -14 +/- 9.5           28.86  6.1 +/- 0.053  395300         647.8      2759
-Img_05.fits        25      3.875  -14 +/- 9.8           29.05  6.3 +/- 0.064  415700         650.2      2797
-Img_06.fits        25      3.92   -14 +/- 9.6           29.31  6.5 +/- 0.065  416700         661        2866
-Img_07.fits        25      4.194  -12 +/- 8.6           32.71  8.5 +/- 0.12   414000         758.2      2955
-Img_08.fits         1      5.559  -1 +/- -1             60.52  1 +/- 2.6e+06      -1          -1          90.05
-Img_09.fits      1000      3.656  0.13 +/- 0.072        60.37  1.8 +/- 0.011    3492        3767         483.3
-Img_10.fits      4000      2.139  0.22 +/- 0.12         58.34  1.3 +/- 0.017   15980        3518         106
-Img_11.fits      2000      2.27   0.075 +/- 0.15        58.47  1.7 +/- 0.15    28580        3466         128
-Img_20.fits       120      3.134  -0.11 +/- 0.067       27.95  3.1 +/- 0.057     819.7       797.3      1287
+filename                                                                nskips    aveImgS  dSdskip            imgNoise  skNoise           tailRatio  darkCurrent
+--------------------------------------------------------------------  --------  ---------  ---------------  ----------  --------------  -----------  -------------
+/home/apiers/Documents/damic/damicm/damicm-image-preproc/Img_00.fits         1      5.45   -1 +/- -1             54.81  -1 +/- -1               nan  -1 +/- -1
+/home/apiers/Documents/damic/damicm/damicm-image-preproc/Img_01.fits        25      3.093  -4.4 +/- 3.1          26.8   5.2 +/- 0.014         31570  -1 +/- -1
+/home/apiers/Documents/damic/damicm/damicm-image-preproc/Img_02.fits        25      3.345  -8.5 +/- 6            27.1   5.5 +/- 0.11          31570  -1 +/- -1
+/home/apiers/Documents/damic/damicm/damicm-image-preproc/Img_03.fits        25      3.634  -11 +/- 7.8           27.71  4.9 +/- 0.093         31570  -1 +/- -1
+/home/apiers/Documents/damic/damicm/damicm-image-preproc/Img_04.fits        25      3.811  -14 +/- 9.5           28.86  4.7 +/- 0.05          31570  -1 +/- -1
+/home/apiers/Documents/damic/damicm/damicm-image-preproc/Img_05.fits        25      3.875  -14 +/- 9.8           29.05  4.6 +/- 0.041           nan  -1 +/- -1
+/home/apiers/Documents/damic/damicm/damicm-image-preproc/Img_06.fits        25      3.92   -14 +/- 9.6           29.31  4.7 +/- 0.05            nan  -1 +/- -1
+/home/apiers/Documents/damic/damicm/damicm-image-preproc/Img_07.fits        25      4.194  -12 +/- 8.6           32.71  4.7 +/- 0.049           nan  -1 +/- -1
+/home/apiers/Documents/damic/damicm/damicm-image-preproc/Img_08.fits         1      5.559  -1 +/- -1             60.52  -1 +/- -1               nan  -1 +/- -1
+/home/apiers/Documents/damic/damicm/damicm-image-preproc/Img_09.fits      1000      3.656  0.13 +/- 0.072        60.37  1.8 +/- 0.0082          nan  -1 +/- -1
+/home/apiers/Documents/damic/damicm/damicm-image-preproc/Img_10.fits      4000      2.139  0.22 +/- 0.12         58.34  1.2 +/- 0.011         31560  -1 +/- -1
+/home/apiers/Documents/damic/damicm/damicm-image-preproc/Img_11.fits      2000      2.27   0.075 +/- 0.15        58.47  1.5 +/- 0.019         31560  -1 +/- -1
+/home/apiers/Documents/damic/damicm/damicm-image-preproc/Img_20.fits       120      3.134  -0.11 +/- 0.067       27.95  2.7 +/- 0.41            nan  -1 +/- -1

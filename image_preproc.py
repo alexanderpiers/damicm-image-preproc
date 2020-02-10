@@ -5,10 +5,13 @@ import os
 import inspect
 import tabulate
 
-sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), "AutoAnalysis"))
+sys.path.append(
+    os.path.join(os.path.abspath(os.path.dirname(__file__)), "AutoAnalysis")
+)
 import readFits
 import PixelDistribution as pd
 import PixelStats as ps
+import DamicImage
 import constants as c
 
 
@@ -26,6 +29,7 @@ class AnalysisOutput(object):
         self.tailRatio = -1
         self.imgNoise = -1
         self.skNoise = -1
+        self.darkCurrent = -1
 
         self.filename = filename
         self.header = list(header)
@@ -94,8 +98,9 @@ class AnalysisOutput(object):
                 outputList.append("%.4g" % outVarValue)
             except TypeError:
                 outputList.append(outVarValue)
-            
+
         return outputList
+
 
 def sortAlphaNumeric(x):
     """ Sorts an iterable of strings of alphanumeric data in the expected human way """
@@ -112,11 +117,16 @@ def processImage(filename, headerString):
     # Read image
     header, data = readFits.read(filename)
 
-    nskips = header["NDCMS"]
+    try:
+        nskips = header["NDCMS"]
+    except KeyError:
+        nskips = 1
 
-    processedImage = AnalysisOutput(
-        filename, nskips=nskips, header=headerString, 
-    )
+    # Create skipper
+    reverseHistogram = (1, 0)["Avg" in filename]
+    image = DamicImage.DamicImage(data[:, :, -1], reverse=reverseHistogram)
+
+    processedImage = AnalysisOutput(filename, nskips=nskips, header=headerString)
 
     # Compute average image entropy
     processedImage.aveImgS = pd.imageEntropy(data[:, :, -1])
@@ -127,8 +137,12 @@ def processImage(filename, headerString):
 
     # Compute Overall image noise (fit to entire image) and skipper noise
     processedImage.imgNoise = pd.computeImageNoise(data[:, :, :-1])
-    nSmoothing = 4 if nskips > 1 else 12 # need less agressive moving average on skipper images
-    skImageNoise, skImageNoiseErr = pd.computeSkImageNoise(data[:, :, -1], nMovingAverage=nSmoothing)
+    nSmoothing = (
+        4 if nskips > 1000 else 8
+    )  # need less agressive moving average on skipper images
+    skImageNoise, skImageNoiseErr = pd.computeSkImageNoise(
+        image, nMovingAverage=nSmoothing
+    )
     processedImage.skNoise = pd.convertValErrToString((skImageNoise, skImageNoiseErr))
 
     # Compute pixel noise metrics
@@ -139,7 +153,16 @@ def processImage(filename, headerString):
     )
     processedImage.pixVar = singlePixelVariance
     processedImage.clustVar = imageNoiseVariance
-    processedImage.tailRatio = pd.computeImageTailRatio(data[:, :, :-1])
+    processedImage.tailRatio = pd.computeImageTailRatio(image)
+
+    # Compute Dark current
+    # if nskips > 1000:
+    darkCurrent, darkCurrentErr = pd.computeDarkCurrent(
+        image, nMovingAverage=nSmoothing
+    )
+    # else:
+    #     darkCurrent, darkCurrentErr = -1, -1
+    processedImage.darkCurrent = pd.convertValErrToString((darkCurrent, darkCurrentErr))
 
     return processedImage
 
@@ -212,11 +235,9 @@ def main(argv):
         "dSdskip",
         "imgNoise",
         "skNoise",
-        "pixVar",
-        "clustVar",
         "tailRatio",
+        "darkCurrent",
     ]
-
 
     # Create a list of all subdirectories to search if recursive flag is passed
     searchDirectoryList = []
@@ -275,11 +296,11 @@ def main(argv):
                 print(" ....skipped\n", end="")
 
         # Create the output string to print as table
-        outputString=[]
+        outputString = []
         for processedImg in processedImgFiles:
             outputString.append(processedImg.getTableList())
         outputStringTable = tabulate.tabulate(outputString, headers=headerString) + "\n"
-        
+
         # Print to terminal if -p flag is passed
         if printToTerminal:
             print(outputStringTable, end="")
