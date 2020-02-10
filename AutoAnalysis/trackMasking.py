@@ -45,10 +45,10 @@ def calcLamda(distribution):
     firstPeak = max(distribution)
 
     i = 0
-    while(integral < firstPeak or distribution[i]/n0 > accuracy):
+    while(integral < firstPeak or distribution[i]/integral > accuracy):
         integral = integral + distribution[i]
         i = i+1
-    return -np.log(n0/totalNum)
+    return -np.log(integral/totalNum)
 
 
 
