@@ -15,7 +15,7 @@ def read(filename):
     # Get numpy of rows, columns, and skips
     header = fitsImg[0].header
     nrows = header["NAXIS2"]
-    nskips = header["NDCMS"]
+    nskips = 1
     ncolumns = header["NAXIS1"] // nskips
 
     # Get data and put it in the shape we want

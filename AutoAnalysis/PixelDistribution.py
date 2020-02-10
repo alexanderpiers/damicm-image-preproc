@@ -389,7 +389,7 @@ def estimateDistributionParameters(image, ):
 
 if __name__ == "__main__":
 
-    filename = "../Img_11.fits"
+    filename = "../FS_Avg_Img_10.fits"
 
     header, data = readFits.read(filename)
 
