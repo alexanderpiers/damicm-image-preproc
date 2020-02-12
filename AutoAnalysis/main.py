@@ -26,8 +26,8 @@ plt.close()
 #mask
 radius = 1
 
-estimatedLamda = tk.calcLamda(n,normImage.size)
-threshold = tk.calcThreshold(estimatedLamda,n,bins,normImage.size)
+estimatedLamda = tk.calcLamda(n, bins ,normImage.size)
+threshold = tk.calcThreshold(estimatedLamda,normImage.size,n,bins)
 print('estimatedLamda =',estimatedLamda)
 print('threshold = ',threshold)
 

@@ -1,7 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-#from PixelDistribution import findPeakPosition
+from PixelDistribution import findPeakPosition
+import scipy.stats as sta
 
 
 #Create mask
@@ -42,10 +43,11 @@ def calcLamda(distribution, totalNum):
     integral = 0
     accuracy = 0.001
 
-    firstPeak = max(distribution)
+    maxi,mini = findPeakPosition(distribution,bins)
+    index = np.argwhere(bins == maxi[0])
 
     i = 0
-    while(integral < firstPeak or distribution[i]/integral > accuracy):
+    while(i < index or distribution[i]/integral > accuracy):
         integral = integral + distribution[i]
         i = i+1
     return -np.log(integral/totalNum)
@@ -53,23 +55,22 @@ def calcLamda(distribution, totalNum):
 
 
 #Estimate threshold
-def calcThreshold(lamda,distribution,bins,totalNum):
+def calcThreshold(lamda,totalNum,distribution,bins):
 
-    sort = np.sort(distribution)
-    index1 = np.argwhere(distribution == sort[-1])
-    index2 = np.argwhere(distribution == sort[-2])
-    print("peak1,peak2,",distribution[index1],distribution[index2])
+    maxi,mini = findPeakPosition(distribution,bins)
+    index1 = np.argwhere(bins = maxi[0])
+    index2 = np.argwhere(bins = mini[1])
+
     x = 0
-    cdf = 0
-    while(cdf < (1-0.1/totalNum)):
-        cdf = cdf + poisson(lamda,x)
+    while(sta.cdf(x,lamda) < (1-0.1/totalNum)):
         x = x+1
     print("x,",x)
+
     return x*abs((bins[index2]-bins[index1])) + bins[index1]
 
 
-def poisson(lamda,x):
-    if(x >= 0 and x%1 == 0):
-        return math.exp(-lamda)*math.pow(lamda,x)/math.factorial(x)
-    else:
-        return 0
+# def poisson(lamda,x):
+#     if(x >= 0 and x%1 == 0):
+#         return math.exp(-lamda)*math.pow(lamda,x)/math.factorial(x)
+#     else:
+#         return 0
