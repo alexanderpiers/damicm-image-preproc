@@ -39,7 +39,7 @@ def mask(image,threshold,radius):
 
 
 #Estimate Lamda
-def calcLamda(distribution, totalNum):
+def calcLamda(distribution,bins,totalNum):
     integral = 0
     accuracy = 0.001
 
