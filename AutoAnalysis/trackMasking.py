@@ -62,7 +62,7 @@ def calcThreshold(lamda,totalNum,distribution,bins):
     index2 = np.argwhere(bins == mini[1])
 
     x = 0
-    while(sta.cdf(x,lamda) < (1-0.1/totalNum)):
+    while(sta.possion.cdf(x,lamda) < (1-0.1/totalNum)):
         x = x+1
     print("x,",x)
 
