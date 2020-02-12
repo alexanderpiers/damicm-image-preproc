@@ -6,7 +6,7 @@ import palettable
 
 def read(filename):
     """
-	Reads the fits file from filename and returns the header information and 
+	Reads the fits file from filename and returns the header information and
 	a numpy array of the data (nrows, ncolumns, nskips)
 	"""
 
@@ -15,9 +15,9 @@ def read(filename):
     # Get numpy of rows, columns, and skips
     header = fitsImg[0].header
     nrows = header["NAXIS2"]
-<<<<<<< HEAD
-    nskips = 1
-=======
+# <<<<<<< HEAD
+#     nskips = 1
+# =======
 
     # Average image fits does not have an NDCMS key
     try:
@@ -25,7 +25,7 @@ def read(filename):
     except KeyError:
         nskips = 1
 
->>>>>>> 8169639b06a0de395227453955e82acaa033bc2a
+# >>>>>>> 8169639b06a0de395227453955e82acaa033bc2a
     ncolumns = header["NAXIS1"] // nskips
 
     # Get data and put it in the shape we want
