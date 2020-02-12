@@ -6,17 +6,16 @@ from astropy.io import fits
 
 
 
-image = fits.getdata("C:/Users/95286/Documents/Python/DAMIC_code/FS_Avg_Img_27.fits")
+image = fits.getdata("C:/Users/95286/Documents/Python/DAMIC_code/FS_Avg_Img_10.fits")
 
 
 normImage = image - np.median(image.reshape(image.size,1))
 
-bins = np.arange(-20,300)+0.5
+bins = np.arange(-30,150)+0.5
 
 xsize = image.shape[0]
 ysize = image.shape[1]
 
-print("normImage size=",normImage.size)
 n,bins,patches = plt.hist(normImage.reshape(normImage.size,1),bins,density=False)
 plt.close()
 
@@ -43,10 +42,10 @@ for i in range(xsize):
 
 
 plt.subplot(2,1,1)
-plt.imshow(normImage,cmap='Greys')
+plt.imshow(normImage,cmap='Greys',aspect='auto')
 plt.colorbar()
 plt.subplot(2,1,2)
-plt.imshow(maskedImage,cmap='Greys')
+plt.imshow(maskedImage,cmap='Greys',aspect='auto')
 plt.colorbar()
 
 

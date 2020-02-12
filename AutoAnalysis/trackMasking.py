@@ -41,15 +41,23 @@ def mask(image,threshold,radius):
 #Estimate Lamda
 def calcLamda(distribution,bins,totalNum):
     integral = 0
-    accuracy = 0.001
+    #accuracy = 0.01
 
-    maxi,mini = findPeakPosition(distribution,bins)
-    index = np.argwhere(bins == maxi[0])
+    maxi,mini = findPeakPosition(distribution,bins,nMovingAverage=4)
+    indexMini = np.argwhere(bins == mini[0])
 
     i = 0
-    while(i < index or distribution[i]/integral > accuracy):
+    while(i < indexMini):
         integral = integral + distribution[i]
         i = i+1
+
+
+    # index = np.argwhere(bins == maxi[0])
+    # i = 0
+    # while(i < index or distribution[i]/integral > accuracy):
+    #     integral = integral + distribution[i]
+    #     i = i+1
+    # print("bins[i]",bins[i])
     return -np.log(integral/totalNum)
 
 
@@ -57,15 +65,17 @@ def calcLamda(distribution,bins,totalNum):
 #Estimate threshold
 def calcThreshold(lamda,totalNum,distribution,bins):
 
-    maxi,mini = findPeakPosition(distribution,bins)
+    maxi,mini = findPeakPosition(distribution,bins, nMovingAverage=4)
     index1 = np.argwhere(bins == maxi[0])
-    index2 = np.argwhere(bins == mini[1])
-
+    index2 = np.argwhere(bins == maxi[1])
+    print("peak value,",distribution[index1])
+    print("maxi,",maxi)
+    print("mini",mini)
     x = 0
     while(sta.poisson.cdf(x,lamda) < (1-0.1/totalNum)):
         x = x+1
     print("x,",x)
-
+    print("separation,", bins[index2]-bins[index1])
     return x*abs((bins[index2]-bins[index1])) + bins[index1]
 
 
