@@ -58,8 +58,8 @@ def calcLamda(distribution,bins,totalNum):
 def calcThreshold(lamda,totalNum,distribution,bins):
 
     maxi,mini = findPeakPosition(distribution,bins)
-    index1 = np.argwhere(bins = maxi[0])
-    index2 = np.argwhere(bins = mini[1])
+    index1 = np.argwhere(bins == maxi[0])
+    index2 = np.argwhere(bins == mini[1])
 
     x = 0
     while(sta.cdf(x,lamda) < (1-0.1/totalNum)):
