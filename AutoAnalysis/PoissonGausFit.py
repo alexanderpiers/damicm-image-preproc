@@ -8,7 +8,6 @@ import lmfit
 import DamicImage
 
 
-
 def computeGausPoissDist(damicImage, aduConversion=-1, npoisson=10):
     """
         Computes pixel distribution as a convolution of gaussian with poisson
@@ -115,7 +114,7 @@ def parseFitMinimum(fitmin):
 
     params = fitmin.params
     output = {}
-    output["sigma"]  = [ params["sigma"].value, params["sigma"].stderr ]
+    output["sigma"]  = [ params["sigma"].value, params["sigma"].stderr ] 
     output["lambda"] = [ params["lamb"].value,  params["lamb"].stderr  ]
     output["ADU"]    = [ params["ADU"].value,   params["ADU"].stderr   ]
 
@@ -132,14 +131,12 @@ def paramsToList(params):
 
 if __name__ == "__main__":
 
-    filename = "C:/Users/95286/Documents/damic_images/FS_Avg_Img_17.fits"
-    # filename = "../Img_00.fits"
+    filename = "../FS_Avg_Img_27.fits"
 
     header, data = readFits.read(filename)
 
     # Test datark current
     damicimage = DamicImage.DamicImage(data[:, :, -1], reverse=False, minRange=500)
-    plt.figure()
     plt.hist(damicimage.centers, bins=damicimage.edges, weights=damicimage.hpix) # Plot histogram of data
 
 
@@ -149,48 +146,10 @@ if __name__ == "__main__":
     print(lmfit.fit_report(minres))
     print(parseFitMinimum(minres))
 
-
-    left = 49600
-    right = 49800
-
     # Plot fit results
     par = paramsToList(params)
     x = np.linspace(damicimage.centers[0], damicimage.centers[-1], 2000)
     plt.plot(x, fGausPoisson(x, *par), "--r")
     plt.yscale("log")
     plt.ylim(0.01, params["N"])
-    plt.xlim([left,right])
-
-
-    # Masked Image
-    maskedimage = DamicImage.MaskedImage(data[:,:,-1], reverse=False, minRange=500)
-    plt.figure()
-    plt.hist(maskedimage.centers, bins=maskedimage.edges, weights=maskedimage.hpix)
-
-    #Perform poisson gaus fit to data
-    minres = computeGausPoissDist(maskedimage, )
-    params = minres.params
-    print(lmfit.fit_report(minres))
-    print(parseFitMinimum(minres))
-
-
-
-    # Plot fit results
-    par = paramsToList(params)
-    x = np.linspace(maskedimage.centers[0], maskedimage.centers[-1], 2000)
-    plt.plot(x, fGausPoisson(x, *par), "--r")
-    plt.yscale("log")
-    plt.ylim(0.01, params["N"])
-    plt.xlim([left,right])
-
-    # Goodness of Fit
-
-    def PGD(x,*par):
-        return fGausPoisson(x, *par)/par[4]
-
-    D, pval = scipy.stats.kstest(maskedimage.hpix/par[4], PGD, args=par, N=par[4])
-    print("D = ", D)
-    print("p-value = ", pval)
-
-
     plt.show()
