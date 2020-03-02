@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import PixelStats as ps
 from scipy.special import factorial
 import DamicImage
+from PoissonGausFit import computeGausPoissDist, paramsToList, fGausPoisson
 
 
 def imageEntropy(image):
@@ -297,24 +298,20 @@ def computeImageTailRatio(damicimage, nsigma=4.0):
     bincenters = damicimage.centers
     binedges = damicimage.edges
 
-    # Fit cluster variance to a gaussian
-    gausfunc = lambda x, *p: p[0] * np.exp(-(x - p[1]) ** 2 / (2 * p[2] ** 2))
-    meanGuess = np.average(bincenters, weights=hpix)
-    sigmaGuess = np.sqrt(np.average((bincenters - meanGuess) ** 2, weights=hpix))
+    # Peform fit of Poisson + Gaus
+    minpar = computeGausPoissDist(damicimage)
+    par = paramsToList(minpar.params)
 
-    paramGuess = [
-        np.sum(hpix) / np.sqrt(2 * np.pi * sigmaGuess ** 2),
-        meanGuess,
-        sigmaGuess,
-    ]
-    paramOpt, paramCov = optimize.curve_fit(gausfunc, bincenters, hpix, p0=paramGuess)
+    # Expected n*sigma number of events in dist
+    nGreaterThanNSigma = scipy.stats.norm.sf(nsigma) * par[4]
 
-    # Compute the ratio between the tails of the fit and data
-    tailLoc = paramOpt[1] + nsigma * paramOpt[2]
-    tailRatio = np.sum(damicimage.image > tailLoc) / (
-        damicimage.image.size
-        * (scipy.stats.norm.sf(tailLoc, loc=paramOpt[1], scale=paramOpt[2]))
-    )
+    # Find the x location that gives us our n sigma threshold
+    gausPoisInt = lambda x: scipy.integrate.quad(fGausPoisson, x, binedges[-1], args=tuple(par))[0] - nGreaterThanNSigma
+    tailLocation = scipy.optimize.fsolve(gausPoisInt, binedges[binedges.size//2])
+
+
+    # Compute the ratio between the tails of the data to the fit
+    tailRatio = np.sum(damicimage.image > tailLocation) / nGreaterThanNSigma
 
     return tailRatio
 
@@ -328,6 +325,8 @@ def convertValErrToString(param):
 			paramString - "val +/- err"
 	"""
     return "%.2g +/- %.2g" % (param[0], param[1])
+
+
 
 
 def histogramImage(image, nsigma=3, minRange=None):

@@ -11,6 +11,7 @@ sys.path.append(
 import readFits
 import PixelDistribution as pd
 import PixelStats as ps
+import PoissonGausFit
 import DamicImage
 import constants as c
 
@@ -24,12 +25,11 @@ class AnalysisOutput(object):
         self.nskips = nskips
         self.aveImgS = -1
         self.dSdskip = -1
-        self.pixVar = -1
-        self.clustVar = -1
         self.tailRatio = -1
         self.imgNoise = -1
         self.skNoise = -1
         self.darkCurrent = -1
+        self.aduConversion = -1
 
         self.filename = filename
         self.header = list(header)
@@ -135,34 +135,39 @@ def processImage(filename, headerString):
     entropySlope, entropySlopeErr, _ = pd.imageEntropySlope(data[:, :, :-1])
     processedImage.dSdskip = pd.convertValErrToString((entropySlope, entropySlopeErr))
 
+    # Try to perform fit of poisson + gauss
+    minresult = PoissonGausFit.computeGausPoissDist(image)
+
+    # If sucessful parse results, otherwise fall back on individual fits
+    if minresult.success:
+        poisGausFitOut = PoissonGausFit.parseFitMinimum(minresult)
+
+        # Parse fit values
+        processedImage.skNoise = pd.convertValErrToString(poisGausFitOut["sigma"])
+        processedImage.darkCurrent = pd.convertValErrToString(poisGausFitOut["lambda"])
+        processedImage.aduConversion = pd.convertValErrToString(poisGausFitOut["ADU"])
+
+        # Compute dark current (which implicitly requires pois + gaus fit to converge)
+        processedImage.tailRatio = pd.computeImageTailRatio(image)
+
+    else:
+    
+        nSmoothing = (
+            4 if nskips > 1000 else 8
+        )  # need less agressive moving average on skipper images
+        skImageNoise, skImageNoiseErr = pd.computeSkImageNoise(
+            image, nMovingAverage=nSmoothing
+        )
+        processedImage.skNoise = pd.convertValErrToString((skImageNoise, skImageNoiseErr))
+
+        # Compute Dark current
+        darkCurrent, darkCurrentErr = pd.computeDarkCurrent(
+            image, nMovingAverage=nSmoothing
+        )
+        processedImage.darkCurrent = pd.convertValErrToString((darkCurrent, darkCurrentErr))
+
     # Compute Overall image noise (fit to entire image) and skipper noise
     processedImage.imgNoise = pd.computeImageNoise(data[:, :, :-1])
-    nSmoothing = (
-        4 if nskips > 1000 else 8
-    )  # need less agressive moving average on skipper images
-    skImageNoise, skImageNoiseErr = pd.computeSkImageNoise(
-        image, nMovingAverage=nSmoothing
-    )
-    processedImage.skNoise = pd.convertValErrToString((skImageNoise, skImageNoiseErr))
-
-    # Compute pixel noise metrics
-    ntrials = 10000
-    singlePixelVariance, _ = ps.singlePixelVariance(data[:, :, :-1], ntrials=ntrials)
-    imageNoiseVariance, _ = ps.imageNoiseVariance(
-        data[:, :, :-1], nskips - c.SKIPPER_OFFSET, ntrials=ntrials
-    )
-    processedImage.pixVar = singlePixelVariance
-    processedImage.clustVar = imageNoiseVariance
-    processedImage.tailRatio = pd.computeImageTailRatio(image)
-
-    # Compute Dark current
-    # if nskips > 1000:
-    darkCurrent, darkCurrentErr = pd.computeDarkCurrent(
-        image, nMovingAverage=nSmoothing
-    )
-    # else:
-    #     darkCurrent, darkCurrentErr = -1, -1
-    processedImage.darkCurrent = pd.convertValErrToString((darkCurrent, darkCurrentErr))
 
     return processedImage
 
@@ -237,6 +242,7 @@ def main(argv):
         "skNoise",
         "tailRatio",
         "darkCurrent",
+        "aduConversion"
     ]
 
     # Create a list of all subdirectories to search if recursive flag is passed
