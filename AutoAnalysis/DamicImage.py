@@ -89,6 +89,29 @@ class Image(object):
 
         return hpix, centers, edges
 
+    def plotSpectrum(self, bins=None):
+        """
+            Plots the histgram of the image
+        """
+
+        fig, ax = plt.subplots(1, 1)
+
+        if np.any(bins):
+            ax.hist(self.image.flatten(), bins=bins)
+        else:
+            # Use default binning
+            if not hasattr(self, "hpix"):
+                self.histogramImage(minRange=500)
+
+            ax.hist(self.centers, bins=self.edges, weights=self.hpix)
+
+
+        ax.set_title("Image Spectrum", fontsize=18)
+        ax.set_xlabel("Pixel Value [ADU]", fontsize=14)
+
+        return fig, ax
+
+
 
 
 
