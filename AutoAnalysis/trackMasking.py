@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import math
 from PixelDistribution import findPeakPosition
 import scipy.stats as sta
+from scipy.optimize import curve_fit
+
 
 
 #Create mask
@@ -40,47 +42,114 @@ def mask(image,threshold,radius):
 
 #Estimate Lamda
 def calcLamda(distribution,bins,totalNum):
-    integral = 0
-    #accuracy = 0.01
 
     maxi,mini = findPeakPosition(distribution,bins,nMovingAverage=4)
     indexMini = np.argwhere(bins == mini[0])
+    integral = peakVolume(0,indexMini,distribution)
 
-    i = 0
-    while(i < indexMini):
-        integral = integral + distribution[i]
-        i = i+1
-
-
-    # index = np.argwhere(bins == maxi[0])
-    # i = 0
-    # while(i < index or distribution[i]/integral > accuracy):
-    #     integral = integral + distribution[i]
-    #     i = i+1
-    # print("bins[i]",bins[i])
     return -np.log(integral/totalNum)
+
+
+
+
 
 
 
 #Estimate threshold
 def calcThreshold(lamda,totalNum,distribution,bins):
 
+    accuracy = 0.1
+
     maxi,mini = findPeakPosition(distribution,bins, nMovingAverage=4)
-    index1 = np.argwhere(bins == maxi[0])
-    index2 = np.argwhere(bins == maxi[1])
-    print("peak value,",distribution[index1])
-    print("maxi,",maxi)
-    print("mini",mini)
     x = 0
-    while(sta.poisson.cdf(x,lamda) < (1-0.1/totalNum)):
+    while(sta.poisson.cdf(x,lamda) < (1-accuracy/totalNum)):
         x = x+1
-    print("x,",x)
-    print("separation,", bins[index2]-bins[index1])
-    return x*abs((bins[index2]-bins[index1])) + bins[index1]
+
+    return x*abs(maxi[1]-maxi[0]) + maxi[0]
 
 
-# def poisson(lamda,x):
-#     if(x >= 0 and x%1 == 0):
-#         return math.exp(-lamda)*math.pow(lamda,x)/math.factorial(x)
-#     else:
-#         return 0
+def normalFit(distribution,bins,separation):
+    maxi,mini = findPeakPosition(distribution,bins,nMovingAverage=4)
+    mini1 = np.argwhere(bins == maxi[0])[0,0] + int(separation/2)
+    central = bins+0.5
+
+    # print("maxi = ",maxi)
+    # print("mini=",mini)
+    index = [0,mini1,mini1+separation,mini1+2*separation]
+
+
+    mu = np.zeros(3)
+    sig = np.zeros(3)
+    volume = np.zeros(3)
+
+
+    for i in range(3):
+        a = central[index[i]:index[i+1]]
+        volume[i] = peakVolume(index[i],index[i+1],distribution)
+        para, pcov = curve_fit(gaussian,a,distribution[index[i]:index[i+1]]/volume[i],[maxi[0]+i*separation,1])
+        mu[i] = para[0]
+        sig[i] = para[1]
+
+
+    return mu, sig, volume
+
+
+def lsFit(distribution,bins,separation,threshold):
+
+    maxi, mini = findPeakPosition(distribution, bins, nMovingAverage=4)
+    indexMini = np.argwhere(bins == maxi[0])[0,0] + int(separation/2)
+
+    num = int(threshold/separation)+1
+    index = [0,indexMini]
+    peaks = np.zeros(num)
+
+    for i in range(1,num):
+        if(i > 1):
+            index.append(i*separation+indexMini)
+        peaks[i-1] = peakVolume(index[i-1],index[i],distribution)
+
+
+    volume = np.sum(peaks)
+    a = np.arange(num)
+    lamb,pcov = curve_fit(poisson,a,peaks/volume)
+
+
+    chi = np.zeros(num)
+    trueVals = np.zeros(num)
+    for i in range(num):
+        trueVals[i] = round(int(volume*sta.poisson.pmf(i,lamb)))
+        chi[i] = (peaks[i]-volume*sta.poisson.pmf(i,lamb))**2/(volume*sta.poisson.pmf(i,lamb))
+    # print("chi = ",chi)
+    # print("peaks = ", peaks)
+    # print("trueVal = ", trueVals)
+    c2dof = sum(chi)/(num-2)
+
+    return float(lamb),volume,c2dof
+
+
+def peakVolume(lower,upper,distribution):
+    integral = 0
+    i = lower
+    while(i < upper):
+        integral = integral + distribution[i]
+        i = i+1
+
+    return integral
+
+
+
+
+
+def poisson(x,lamda):
+    return sta.poisson.pmf(x,lamda)
+
+def gaussian(x,mu,sig):
+    return np.exp(-0.5*(x-mu)**2/sig**2)/np.sqrt(2*np.pi*sig**2)
+
+
+
+
+
+
+
+

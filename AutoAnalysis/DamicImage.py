@@ -7,7 +7,7 @@ import scipy.stats
 class Image(object):
     """
 	Image Class
-	
+
 	Used to store 2D numpy (N x M) arrays along with some statistical properties of the image (med, mad, histogram) etc.
 	Provides some utility so that these values do not need to be continously recomputed.
 
@@ -75,7 +75,7 @@ class Image(object):
                 np.ceil(self.med + nsigma * self.mad),
             )
 
-        hpix, edges = np.histogram(self.image, bins=bins)
+        hpix, edges = np.histogram(self.image.flatten(), bins=bins)
         centers = edges[:-1] + np.diff(edges)[0] / 2
 
         self.hpix, self.centers, self.edges = hpix, centers, edges
@@ -88,7 +88,7 @@ class DamicImage(Image):
 		DamicImage Class
 
 		Extended utility to the image class to allow both "raw" and "processed average" images to be used by the other analysis functions.
-		Depending on what processing as been done, increasing number of electrons may increase (normal) or decrease (reverse) the pixel value, 
+		Depending on what processing as been done, increasing number of electrons may increase (normal) or decrease (reverse) the pixel value,
 		so the reverse flag allows conversion from reverse into normal. All histograms should be in the "normal" schema for further procccessing
 
 		Use:
