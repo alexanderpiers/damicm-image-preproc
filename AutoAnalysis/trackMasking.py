@@ -94,7 +94,7 @@ def normalFit(distribution,bins,separation):
     return mu, sig, volume
 
 
-def lsFit(distribution,bins,separation,threshold):
+def lsFit(distribution,bins,separation,threshold=150):
 
     maxi, mini = findPeakPosition(distribution, bins, nMovingAverage=4)
     indexMini = np.argwhere(bins == maxi[0])[0,0] + int(separation/2)

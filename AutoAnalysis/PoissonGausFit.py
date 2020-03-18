@@ -56,7 +56,7 @@ def fGausPoisson(x, *par):
 
     y = 0
     for k in range(npoiss):
-        y += ( lamb**k * np.exp(-lamb) / factorial(k) * np.exp( - (a*k - (x - offset))**2 / (2 * sigma**2)) ) 
+        y += ( lamb**k * np.exp(-lamb) / factorial(k) * np.exp( - (a*k - (x - offset))**2 / (2 * sigma**2)) )
 
     return y * N / np.sqrt(2 * np.pi * sigma**2)
 
@@ -83,7 +83,7 @@ def parseFitMinimum(fitmin):
 
     params = fitmin.params
     output = {}
-    output["sigma"]  = [ params["sigma"].value, params["sigma"].stderr ] 
+    output["sigma"]  = [ params["sigma"].value, params["sigma"].stderr ]
     output["lambda"] = [ params["lamb"].value,  params["lamb"].stderr  ]
     output["ADU"]    = [ params["ADU"].value,   params["ADU"].stderr   ]
 
