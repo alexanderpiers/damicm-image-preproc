@@ -56,16 +56,16 @@ def calcLamda(distribution,bins,totalNum):
 
 
 #Estimate threshold
-def calcThreshold(lamda,totalNum,distribution,bins):
+def calcThreshold(lamda,totalNum,separation,offset):
 
     accuracy = 0.1
 
-    maxi,mini = findPeakPosition(distribution,bins, nMovingAverage=4)
+
     x = 0
     while(sta.poisson.cdf(x,lamda) < (1-accuracy/totalNum)):
         x = x+1
 
-    return x*abs(maxi[1]-maxi[0]) + maxi[0]
+    return x*separation + offset
 
 
 def normalFit(distribution,bins,separation):
@@ -94,7 +94,7 @@ def normalFit(distribution,bins,separation):
     return mu, sig, volume
 
 
-def lsFit(distribution,bins,separation,threshold=150):
+def lsFit(distribution,bins,separation,threshold=100):
 
     maxi, mini = findPeakPosition(distribution, bins, nMovingAverage=4)
     indexMini = np.argwhere(bins == maxi[0])[0,0] + int(separation/2)

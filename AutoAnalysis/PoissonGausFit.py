@@ -100,13 +100,14 @@ def paramsToList(params):
 
 if __name__ == "__main__":
 
-    filename = "../FS_Avg_Img_27.fits"
+    filename = "C:/Users/95286/Documents/damic_images/FS_Avg_Img_27.fits"
     # filename = "../Img_00.fits"
 
     header, data = readFits.read(filename)
 
     # Test datark current
     damicimage = DamicImage.DamicImage(data[:, :, -1], reverse=False, minRange=500)
+    plt.figure()
     plt.hist(damicimage.centers, bins=damicimage.edges, weights=damicimage.hpix) # Plot histogram of data
 
 
@@ -116,10 +117,38 @@ if __name__ == "__main__":
     print(lmfit.fit_report(minres))
     print(parseFitMinimum(minres))
 
+
+
+    left = 49600
+    right = 49800
+
     # Plot fit results
     par = paramsToList(params)
     x = np.linspace(damicimage.centers[0], damicimage.centers[-1], 2000)
     plt.plot(x, fGausPoisson(x, *par), "--r")
     plt.yscale("log")
     plt.ylim(0.01, params["N"])
+    plt.xlim([left,right])
+
+
+    plt.figure()
+    plt.hist(damicimage.centers, bins=damicimage.edges, weights=damicimage.mhpix) # Plot histogram of data
+
+
+    # Perform poisson gaus fit to masked data
+    minres = computeGausPoissDist(damicimage, )
+    params = minres.params
+    print(lmfit.fit_report(minres))
+    print(parseFitMinimum(minres))
+    print("threshold", damicimage.threshold)
+
+    # Plot fit results
+    par = paramsToList(params)
+    x = np.linspace(damicimage.centers[0], damicimage.centers[-1], 2000)
+    plt.plot(x, fGausPoisson(x, *par), "--r")
+    plt.yscale("log")
+    plt.ylim(0.01, params["N"])
+    plt.xlim([left,right])
+
+
     plt.show()

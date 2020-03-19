@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import readFits
 import scipy.stats
-
+import trackMasking as tk
+import PixelDistribution
 
 class Image(object):
     """
@@ -22,7 +23,13 @@ class Image(object):
 
         # Compute usefule statistics on the image
         self.estimateDistributionParameters()
-        self.histogramImage(minRange=minRange)
+        self.hpix, self.centers, self.edges = self.histogramImage(img, minRange=minRange)
+
+
+        # Compute statistics on the masked image
+        self.maskedImage = self.mask()
+        self.mhpix, centers, edges = self.histogramImage(self.maskedImage, minRange=minRange)
+
 
     def estimateDistributionParameters(self,):
         """
@@ -52,7 +59,7 @@ class Image(object):
 
         return self.med, self.mad
 
-    def histogramImage(self, nsigma=3, minRange=None):
+    def histogramImage(self, image, nsigma=3, minRange=None):
         """
 		Creates a histogram of an image (or any data set) of a reasonable range with integer (ADU) spaced bins
 		Inputs:
@@ -75,12 +82,14 @@ class Image(object):
                 np.ceil(self.med + nsigma * self.mad),
             )
 
-        hpix, edges = np.histogram(self.image.flatten(), bins=bins)
+        hpix, edges = np.histogram(image.flatten(), bins=bins)
         centers = edges[:-1] + np.diff(edges)[0] / 2
 
-        self.hpix, self.centers, self.edges = hpix, centers, edges
+        #self.hpix, self.centers, self.edges = hpix, centers, edges
 
         return hpix, centers, edges
+
+
 
 
 class DamicImage(Image):
@@ -110,19 +119,36 @@ class DamicImage(Image):
         # self.centers = (self.centers - self.med)
         # self.edges = (self.edges - self.med)
 
+    def mask(self):
+  		#Create a mask and remove all the pixels around identified tracks
+  	    #Ouputs:
+  	    # maskedImage - a 1-d array with all the tracks removed.
+
+    	radius = 1
+    	maxi, mini = PixelDistribution.findPeakPosition(self.hpix,self.centers,nMovingAverage=4)
+    	self.separation = int(maxi[1]-maxi[0])
+    	self.offset = maxi[0]
+    	fitLamda, volume, c2dof = tk.lsFit(self.hpix, self.edges ,self.separation)
+    	self.threshold = tk.calcThreshold(fitLamda, self.image.size, self.separation, self.offset)
+
+    	mask = tk.mask(self.image,self.threshold,radius)
+    	maskedImage = self.image[mask].flatten()
+
+    	return maskedImage
+
 
 if __name__ == "__main__":
 
     # Test to see if reversing image works
-    imgname = "../Img_11.fits"
+    imgname = "C:/Users/95286/Documents/damic_images/FS_Avg_Img_10.fits"
 
     header, data = readFits.read(imgname)
 
-    normalImage = DamicImage(data[:, :, -1], False, "normalImage test")
-    reverseImage = DamicImage(data[:, :, -1], True, "forward test")
+    normalImage = DamicImage(data[:,:,-1], False, "normalImage test")
+    reverseImage = DamicImage(data[:,:,-1], True, "forward test")
 
-    normalImage.histogramImage(minRange=80)
-    reverseImage.histogramImage(minRange=80)
+    normalImage.histogramImage(normalImage.image, minRange=80)
+    reverseImage.histogramImage(reverseImage.image, minRange=80)
     reverseImage.reverseHistogram()
 
     fig, axs = plt.subplots(1, 2, figsize=(14, 8))
@@ -130,4 +156,16 @@ if __name__ == "__main__":
     axs[1].hist(
         reverseImage.centers, weights=reverseImage.hpix, bins=reverseImage.edges
     )
+
+
+
+
+    fig, axs = plt.subplots(1, 2, figsize=(14, 8))
+    axs[0].hist(normalImage.centers, weights=normalImage.mhpix, bins=normalImage.edges)
+    axs[1].hist(
+        reverseImage.centers, weights=reverseImage.mhpix, bins=reverseImage.edges
+    )
+
+
+
     plt.show()
