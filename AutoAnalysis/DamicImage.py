@@ -120,8 +120,8 @@ class DamicImage(Image):
         # self.edges = (self.edges - self.med)
 
     def mask(self):
-  		#Create a mask and remove all the pixels around identified tracks
-  	    #Ouputs:
+  		# Create a mask and remove all the pixels around identified tracks
+  	    # Ouputs:
   	    # maskedImage - a 1-d array with all the tracks removed.
 
     	radius = 1
