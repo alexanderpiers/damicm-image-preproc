@@ -61,6 +61,37 @@ def fGausPoisson(x, *par):
 
     return y * N / np.sqrt(2 * np.pi * sigma**2)
 
+def fCDFGausPoisson(x, *par):
+    """ 
+        Cumulative distribution function of a gaussian convolved with a poisson
+
+        Inputs:
+            x - double, value of function to be evaluated
+            par - list of parameters
+                par[0] - sigma, width of gaussians
+                par[1] - lamb, mean of poisson process (lambda is python reserved keyword)
+                par[2] - offset, shift of distribution relative to zero
+                par[3] - a, electron to ADU conversion
+                par[4] - N, amplitude of distribution (npixels)
+                par[5] - npoiss, number of terms in the poisson process. This should be fixed
+
+        Outputs:
+            double, value of the cumulative distribution function
+    """
+    sigma = par[0]
+    lamb = par[1]
+    offset = par[2]
+    a = par[3]
+    N = par[4]
+    npoiss = par[5]
+
+    y = 0
+    for k in range(npoiss):
+        y += ( lamb**k * np.exp(-lamb) / factorial(k) * 0.5 * (1 + erf((x - offset - a*k) / (sigma * np.sqrt(2)))) )  
+
+    return y 
+
+
 def lmfitGausPoisson(param, x, data):
     """
     LMFIT function for a gaussian convolved with a poisson distribution
