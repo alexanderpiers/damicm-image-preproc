@@ -27,8 +27,8 @@ class Image(object):
 
 
         # Compute statistics on the masked image
-        self.maskedImage = self.mask()
-        self.mhpix, centers, edges = self.histogramImage(self.maskedImage, minRange=minRange)
+        # self.maskedImage = self.mask()
+        # self.mhpix, centers, edges = self.histogramImage(self.maskedImage, minRange=minRange)
 
 
     def estimateDistributionParameters(self,):
@@ -119,17 +119,35 @@ class DamicImage(Image):
         # self.centers = (self.centers - self.med)
         # self.edges = (self.edges - self.med)
 
+
+class MaskedImage(DamicImage):
+    """
+        Accepet the same parameters as DamicImage class and inherit all
+        the functionalities. Create a mask that remove all the tracks in raw image
+
+		Use:
+			image = MaskedImage(data, reverse=<bool>, filename=<string>, minRange=<double>)
+
+    """
+    def __init__(self, img, reverse=True, filename="", minRange=200):
+        super(MaskedImage, self).__init__(img, reverse, filename, minRange)
+        self.image = self.mask()
+        super(MaskedImage,self).__init__(self.image, reverse, filename, minRange)
+
+
     def mask(self):
   		# Create a mask and remove all the pixels around identified tracks
   	    # Ouputs:
   	    # maskedImage - a 1-d array with all the tracks removed.
 
-    	radius = 1
+    	radius = 2
     	maxi, mini = PixelDistribution.findPeakPosition(self.hpix,self.centers,nMovingAverage=4)
-    	self.separation = int(maxi[1]-maxi[0])
-    	self.offset = maxi[0]
-    	fitLamda, volume, c2dof = tk.lsFit(self.hpix, self.edges ,self.separation)
-    	self.threshold = tk.calcThreshold(fitLamda, self.image.size, self.separation, self.offset)
+
+    	separation = int(maxi[1]-maxi[0])
+    	offset = maxi[0]
+
+    	fitLamda, volume, c2dof = tk.lsFit(self.hpix, self.edges ,separation)
+    	self.threshold = tk.calcThreshold(fitLamda, self.image.size, separation, offset)
 
     	mask = tk.mask(self.image,self.threshold,radius)
     	maskedImage = self.image[mask].flatten()
@@ -161,7 +179,7 @@ if __name__ == "__main__":
 
 
     fig, axs = plt.subplots(1, 2, figsize=(14, 8))
-    axs[0].hist(normalImage.centers, weights=normalImage.mhpix, bins=normalImage.edges)
+    axs[0].hist(normalImage.centers, weights=normalImage.hpix, bins=normalImage.edges)
     axs[1].hist(
         reverseImage.centers, weights=reverseImage.mhpix, bins=reverseImage.edges
     )

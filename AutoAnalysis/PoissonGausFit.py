@@ -8,6 +8,7 @@ import lmfit
 import DamicImage
 
 
+
 def computeGausPoissDist(damicImage, aduConversion=-1, npoisson=10):
     """
         Computes pixel distribution as a convolution of gaussian with poisson
@@ -40,9 +41,9 @@ def fGausPoisson(x, *par):
                 par[0] - sigma, width of gaussians
                 par[1] - lamb, mean of poisson process (lambda is python reserved keyword)
                 par[2] - offset, shift of distribution relative to zero
-                par[0] - a, electron to ADU conversion
-                par[0] - N, amplitude of distribution (npixels)
-                par[0] - npoiss, number of terms in the poisson process. This should be fixed
+                par[3] - a, electron to ADU conversion
+                par[4] - N, amplitude of distribution (npixels)
+                par[5] - npoiss, number of terms in the poisson process. This should be fixed
 
         Outputs:
             double, value of the function
@@ -100,7 +101,7 @@ def paramsToList(params):
 
 if __name__ == "__main__":
 
-    filename = "C:/Users/95286/Documents/damic_images/FS_Avg_Img_27.fits"
+    filename = "C:/Users/95286/Documents/damic_images/FS_Avg_Img_17.fits"
     # filename = "../Img_00.fits"
 
     header, data = readFits.read(filename)
@@ -118,7 +119,6 @@ if __name__ == "__main__":
     print(parseFitMinimum(minres))
 
 
-
     left = 49600
     right = 49800
 
@@ -131,24 +131,35 @@ if __name__ == "__main__":
     plt.xlim([left,right])
 
 
+    # Masked Image
+    maskedimage = DamicImage.MaskedImage(data[:,:,-1], reverse=False, minRange=500)
     plt.figure()
-    plt.hist(damicimage.centers, bins=damicimage.edges, weights=damicimage.mhpix) # Plot histogram of data
+    plt.hist(maskedimage.centers, bins=maskedimage.edges, weights=maskedimage.hpix)
 
-
-    # Perform poisson gaus fit to masked data
-    minres = computeGausPoissDist(damicimage, )
+    #Perform poisson gaus fit to data
+    minres = computeGausPoissDist(maskedimage, )
     params = minres.params
     print(lmfit.fit_report(minres))
     print(parseFitMinimum(minres))
-    print("threshold", damicimage.threshold)
+
+
 
     # Plot fit results
     par = paramsToList(params)
-    x = np.linspace(damicimage.centers[0], damicimage.centers[-1], 2000)
+    x = np.linspace(maskedimage.centers[0], maskedimage.centers[-1], 2000)
     plt.plot(x, fGausPoisson(x, *par), "--r")
     plt.yscale("log")
     plt.ylim(0.01, params["N"])
     plt.xlim([left,right])
+
+    # Goodness of Fit
+
+    def PGD(x,*par):
+        return fGausPoisson(x, *par)/par[4]
+
+    D, pval = scipy.stats.kstest(maskedimage.hpix/par[4], PGD, args=par, N=par[4])
+    print("D = ", D)
+    print("p-value = ", pval)
 
 
     plt.show()
