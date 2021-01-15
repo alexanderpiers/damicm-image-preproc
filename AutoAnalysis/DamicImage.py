@@ -15,14 +15,14 @@ class Image(object):
 		image = DamicImage(data, filename=<string>, minRange=<double>)
 	"""
 
-    def __init__(self, img, filename="", minRange=None):
+    def __init__(self, img, filename="", minRange=None, bw=1):
         super(Image, self).__init__()
         self.image = img
         self.filename = filename
 
         # Compute usefule statistics on the image
         self.estimateDistributionParameters()
-        self.histogramImage(minRange=minRange)
+        self.histogramImage(minRange=minRange, bw=bw)
 
     def estimateDistributionParameters(self,):
         """
@@ -52,7 +52,7 @@ class Image(object):
 
         return self.med, self.mad
 
-    def histogramImage(self, nsigma=3, minRange=None):
+    def histogramImage(self, nsigma=3, minRange=None, bw=1):
         """
 		Creates a histogram of an image (or any data set) of a reasonable range with integer (ADU) spaced bins
 		Inputs:
@@ -67,12 +67,12 @@ class Image(object):
         # Create bins. +/- 3*mad
         if minRange and 2 * nsigma * self.mad < minRange:
             bins = np.arange(
-                np.floor(self.med - minRange / 2), np.ceil(self.med + minRange / 2)
+                np.floor(self.med - minRange / 2), np.ceil(self.med + minRange / 2), bw
             )
         else:
             bins = np.arange(
                 np.floor(self.med - nsigma * self.mad),
-                np.ceil(self.med + nsigma * self.mad),
+                np.ceil(self.med + nsigma * self.mad), bw
             )
 
         hpix, edges = np.histogram(self.image, bins=bins)
@@ -118,9 +118,9 @@ class DamicImage(Image):
 			image = DamicImage(data, reverse=<bool>, filename=<string>, minRange=<double>)
 	"""
 
-    def __init__(self, img, reverse=True, filename="", minRange=200):
+    def __init__(self, img, reverse=True, filename="", minRange=200, bw=1):
 
-        super(DamicImage, self).__init__(img, filename=filename, minRange=minRange)
+        super(DamicImage, self).__init__(img, filename=filename, minRange=minRange, bw=bw)
         self.reverse = reverse
 
         if self.reverse:
