@@ -8,22 +8,26 @@ import lmfit
 import DamicImage
 
 
-def computeGausPoissDist(damicImage, aduConversion=-1, npoisson=10):
+def computeGausPoissDist(damicImage, aduConversion=-1, npoisson=10, darkCurrent=-1):
     """
         Computes pixel distribution as a convolution of gaussian with poisson
     """
 
+    binwidth = np.diff(damicImage.edges)[0]
 
     # Set parameters to the fit
     params = lmfit.Parameters()
     params.add("sigma", value=damicImage.mad)
-    params.add("lamb", value=0.5, min=0)
+    if darkCurrent > 0:
+        params.add("lamb", value=darkCurrent, vary=False) 
+    else:
+        params.add("lamb", value=-1*darkCurrent, min=0)
     params.add("offset", value=damicImage.med)
     if aduConversion > 0:
         params.add("ADU", value=aduConversion, vary=False)
     else:
-        params.add("ADU", value=5)
-    params.add("N", value=damicImage.image.size)
+        params.add("ADU", value=-1*aduConversion)
+    params.add("N", value=damicImage.image.size*binwidth)
     params.add("npoisson", value=npoisson, vary=False)
     minimized = lmfit.minimize(lmfitGausPoisson, params, args=(damicImage.centers, damicImage.hpix))
 
