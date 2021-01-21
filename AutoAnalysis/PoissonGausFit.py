@@ -8,22 +8,26 @@ import lmfit
 import DamicImage
 
 
-def computeGausPoissDist(damicImage, aduConversion=-1, npoisson=10):
+def computeGausPoissDist(damicImage, aduConversion=-1, npoisson=10, darkCurrent=-1):
     """
         Computes pixel distribution as a convolution of gaussian with poisson
     """
 
+    binwidth = np.diff(damicImage.edges)[0]
 
     # Set parameters to the fit
     params = lmfit.Parameters()
     params.add("sigma", value=damicImage.mad)
-    params.add("lamb", value=0.5, min=0)
+    if darkCurrent > 0:
+        params.add("lamb", value=darkCurrent, vary=False) 
+    else:
+        params.add("lamb", value=-1*darkCurrent, min=0)
     params.add("offset", value=damicImage.med)
     if aduConversion > 0:
         params.add("ADU", value=aduConversion, vary=False)
     else:
-        params.add("ADU", value=5)
-    params.add("N", value=damicImage.image.size)
+        params.add("ADU", value=-1*aduConversion)
+    params.add("N", value=damicImage.image.size*binwidth)
     params.add("npoisson", value=npoisson, vary=False)
     minimized = lmfit.minimize(lmfitGausPoisson, params, args=(damicImage.centers, damicImage.hpix))
 
@@ -40,9 +44,9 @@ def fGausPoisson(x, *par):
                 par[0] - sigma, width of gaussians
                 par[1] - lamb, mean of poisson process (lambda is python reserved keyword)
                 par[2] - offset, shift of distribution relative to zero
-                par[0] - a, electron to ADU conversion
-                par[0] - N, amplitude of distribution (npixels)
-                par[0] - npoiss, number of terms in the poisson process. This should be fixed
+                par[3] - a, electron to ADU conversion
+                par[4] - N, amplitude of distribution (npixels)
+                par[5] - npoiss, number of terms in the poisson process. This should be fixed
 
         Outputs:
             double, value of the function
