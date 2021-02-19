@@ -3,7 +3,7 @@ import scipy.stats
 import scipy.optimize as optimize
 import readFits
 import matplotlib.pyplot as plt
-from scipy.special import factorial
+from scipy.special import factorial, erf
 import lmfit
 import DamicImage
 
@@ -93,7 +93,6 @@ def fCDFGausPoisson(x, *par):
         y += ( lamb**k * np.exp(-lamb) / factorial(k) * 0.5 * (1 + erf((x - offset - a*k) / (sigma * np.sqrt(2)))) )  
 
     return y 
-
 
 def lmfitGausPoisson(param, x, data):
     """
