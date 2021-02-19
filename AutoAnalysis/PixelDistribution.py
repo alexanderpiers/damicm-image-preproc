@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import PixelStats as ps
 from scipy.special import factorial
 import DamicImage
+from PoissonGausFit import computeGausPoissDist, paramsToList, fGausPoisson
 
 
 def imageEntropy(image):
@@ -117,11 +118,6 @@ def computeSkImageNoise(damicImage, nMovingAverage=10):
         hSkipper, bincSkipper, nMovingAverage=nMovingAverage
     )
 
-    # fig, ax = plt.subplots(1, 1, figsize=(12,9))
-    # ax.plot(bincSkipper, hSkipper, "*k")
-    # ax.plot(bincSkipper, smoothHSkipper, "--r")
-    # ax.plot(maximaLoc, hSkipper[maximaIndex], "*b")
-    # ax.plot(minimaLoc, hSkipper[minimaIndex], "*g")
 
     # Define the different fit ranges
     fitMin = []
@@ -158,8 +154,6 @@ def computeSkImageNoise(damicImage, nMovingAverage=10):
     except (RuntimeError, optimize.OptimizeWarning, ValueError) as e:
         return -1, -1
 
-    # x = np.linspace(fitMin, fitMax, 100)
-    # ax.plot(x, gausfunc(x, *paramOpt), 'k', linewidth=3)
 
     # Return noise and error
     skImageNoise = paramOpt[2]
@@ -167,7 +161,7 @@ def computeSkImageNoise(damicImage, nMovingAverage=10):
     return skImageNoise, skImageNoiseErr
 
 
-def computeDarkCurrent(damicImage, nMovingAverage=10):
+def computeDarkCurrent(damicImage, nMovingAverage=10, nAdditionalPeaks=2):
     """
         Computes the dark current in a skipper image. Takes the integral of each peak and fits to a poisson distribution
         to get mean number of electrons per pixel per exposure.
@@ -198,6 +192,13 @@ def computeDarkCurrent(damicImage, nMovingAverage=10):
         fitMax.append(maximaLoc[i] + fitDelta / 2)
         fitMin.append(maximaLoc[i] - fitDelta / 2)
 
+    # Adds nAdditionalPeaks in case where peak finding may miss small peaks
+    for i in range(nAdditionalPeaks):
+        fitMean.append(fitMean[-1] + fitDelta)
+        fitMax.append(fitMean[-1] + fitDelta / 2)
+        fitMin.append(fitMean[-1] - fitDelta / 2)
+
+
     # Perform guass fit over all fit ranges
     gausfunc = lambda x, *p: p[0] * np.exp(-(x - p[1]) ** 2 / (2 * p[2] ** 2))
     vParam = []
@@ -211,7 +212,7 @@ def computeDarkCurrent(damicImage, nMovingAverage=10):
         fitSkipperValues = hSkipper[np.nonzero(fitIndex)]
 
         paramGuess = [
-            hSkipper[np.nonzero(bincSkipper == fitMean[i])][0],
+            hSkipper[np.abs(bincSkipper - fitMean[i]).argmin()],
             fitMean[i],
             (fitMax[i] - fitMin[i]) / 6,
         ]
@@ -231,7 +232,7 @@ def computeDarkCurrent(damicImage, nMovingAverage=10):
             pass
         nElectrons += 1
 
-    # Perform the Poissoin fit to the integral
+    # Perform the Poisson fit to the integral
     try:
         # Add a zero number of pixels to the next electron bin
         #vNElectrons.append(vNElectrons[-1] + 1)
@@ -297,24 +298,20 @@ def computeImageTailRatio(damicimage, nsigma=4.0):
     bincenters = damicimage.centers
     binedges = damicimage.edges
 
-    # Fit cluster variance to a gaussian
-    gausfunc = lambda x, *p: p[0] * np.exp(-(x - p[1]) ** 2 / (2 * p[2] ** 2))
-    meanGuess = np.average(bincenters, weights=hpix)
-    sigmaGuess = np.sqrt(np.average((bincenters - meanGuess) ** 2, weights=hpix))
+    # Peform fit of Poisson + Gaus
+    minpar = computeGausPoissDist(damicimage)
+    par = paramsToList(minpar.params)
 
-    paramGuess = [
-        np.sum(hpix) / np.sqrt(2 * np.pi * sigmaGuess ** 2),
-        meanGuess,
-        sigmaGuess,
-    ]
-    paramOpt, paramCov = optimize.curve_fit(gausfunc, bincenters, hpix, p0=paramGuess)
+    # Expected n*sigma number of events in dist
+    nGreaterThanNSigma = scipy.stats.norm.sf(nsigma) * par[4]
 
-    # Compute the ratio between the tails of the fit and data
-    tailLoc = paramOpt[1] + nsigma * paramOpt[2]
-    tailRatio = np.sum(damicimage.image > tailLoc) / (
-        damicimage.image.size
-        * (scipy.stats.norm.sf(tailLoc, loc=paramOpt[1], scale=paramOpt[2]))
-    )
+    # Find the x location that gives us our n sigma threshold
+    gausPoisInt = lambda x: scipy.integrate.quad(fGausPoisson, x, binedges[-1], args=tuple(par))[0] - nGreaterThanNSigma
+    tailLocation = scipy.optimize.fsolve(gausPoisInt, binedges[binedges.size//2])
+
+
+    # Compute the ratio between the tails of the data to the fit
+    tailRatio = np.sum(damicimage.image > tailLocation) / nGreaterThanNSigma
 
     return tailRatio
 
@@ -328,6 +325,8 @@ def convertValErrToString(param):
 			paramString - "val +/- err"
 	"""
     return "%.2g +/- %.2g" % (param[0], param[1])
+
+
 
 
 def histogramImage(image, nsigma=3, minRange=None):
@@ -378,12 +377,11 @@ def estimateDistributionParameters(image,):
     return med, mad
 
 
-# def poisson_gaus_log_likelihood(x, ):
-
 
 if __name__ == "__main__":
 
     filename = "../FS_Avg_Img_10.fits"
+    # filename = "../Img_00.fits"
 
     header, data = readFits.read(filename)
 
@@ -403,11 +401,16 @@ if __name__ == "__main__":
 
     # plt.show()
 
-    # Test dark current
-    damicimage = DamicImage.DamicImage(data[:, :, -1], reverse=True)
-    sigma = computeSkImageNoise(damicimage, nMovingAverage=5)
+    # Test datark current
+    damicimage = DamicImage.DamicImage(data[:, :, -1], reverse=False, minRange=500)
+    # sigma = computeSkImageNoise(damicimage, nMovingAverage=5)
     plt.hist(damicimage.centers, bins=damicimage.edges, weights=damicimage.hpix)
-    plt.show()
+    # plt.show()
 
     pois, err = computeDarkCurrent(damicimage, nMovingAverage=5)
     print(convertValErrToString((pois, err)))
+
+    # Test the tail ratio
+    print(computeImageTailRatio(damicimage))
+
+    plt.show()

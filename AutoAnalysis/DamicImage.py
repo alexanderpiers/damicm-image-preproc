@@ -16,20 +16,14 @@ class Image(object):
 		image = DamicImage(data, filename=<string>, minRange=<double>)
 	"""
 
-    def __init__(self, img, filename="", minRange=None):
+    def __init__(self, img, filename="", minRange=None, bw=1):
         super(Image, self).__init__()
         self.image = img
         self.filename = filename
 
         # Compute usefule statistics on the image
         self.estimateDistributionParameters()
-        self.hpix, self.centers, self.edges = self.histogramImage(img, minRange=minRange)
-
-
-        # Compute statistics on the masked image
-        # self.maskedImage = self.mask()
-        # self.mhpix, centers, edges = self.histogramImage(self.maskedImage, minRange=minRange)
-
+        self.histogramImage(minRange=minRange, bw=bw)
 
     def estimateDistributionParameters(self,):
         """
@@ -59,7 +53,7 @@ class Image(object):
 
         return self.med, self.mad
 
-    def histogramImage(self, image, nsigma=3, minRange=None):
+    def histogramImage(self, nsigma=3, minRange=None, bw=1):
         """
 		Creates a histogram of an image (or any data set) of a reasonable range with integer (ADU) spaced bins
 		Inputs:
@@ -74,21 +68,42 @@ class Image(object):
         # Create bins. +/- 3*mad
         if minRange and 2 * nsigma * self.mad < minRange:
             bins = np.arange(
-                np.floor(self.med - minRange / 2), np.ceil(self.med + minRange / 2)
+                np.floor(self.med - minRange / 2), np.ceil(self.med + minRange / 2), bw
             )
         else:
             bins = np.arange(
                 np.floor(self.med - nsigma * self.mad),
-                np.ceil(self.med + nsigma * self.mad),
+                np.ceil(self.med + nsigma * self.mad), bw
             )
 
-        hpix, edges = np.histogram(image.flatten(), bins=bins)
+        hpix, edges = np.histogram(self.image, bins=bins)
         centers = edges[:-1] + np.diff(edges)[0] / 2
 
-        #self.hpix, self.centers, self.edges = hpix, centers, edges
+        self.hpix, self.centers, self.edges = hpix, centers, edges
 
         return hpix, centers, edges
 
+    def plotSpectrum(self, bins=None):
+        """
+            Plots the histgram of the image
+        """
+
+        fig, ax = plt.subplots(1, 1)
+
+        if np.any(bins):
+            ax.hist(self.image.flatten(), bins=bins)
+        else:
+            # Use default binning
+            if not hasattr(self, "hpix"):
+                self.histogramImage(minRange=500)
+
+            ax.hist(self.centers, bins=self.edges, weights=self.hpix)
+
+
+        ax.set_title("Image Spectrum", fontsize=18)
+        ax.set_xlabel("Pixel Value [ADU]", fontsize=14)
+
+        return fig, ax
 
 
 
@@ -104,9 +119,9 @@ class DamicImage(Image):
 			image = DamicImage(data, reverse=<bool>, filename=<string>, minRange=<double>)
 	"""
 
-    def __init__(self, img, reverse=True, filename="", minRange=200):
+    def __init__(self, img, reverse=True, filename="", minRange=200, bw=1):
 
-        super(DamicImage, self).__init__(img, filename=filename, minRange=minRange)
+        super(DamicImage, self).__init__(img, filename=filename, minRange=minRange, bw=bw)
         self.reverse = reverse
 
         if self.reverse:
@@ -122,7 +137,7 @@ class DamicImage(Image):
 
 class MaskedImage(DamicImage):
     """
-        Accepet the same parameters as DamicImage class and inherit all
+        Accept the same parameters as DamicImage class and inherit all
         the functionalities. Create a mask that remove all the tracks in raw image
 
 		Use:
@@ -158,15 +173,15 @@ class MaskedImage(DamicImage):
 if __name__ == "__main__":
 
     # Test to see if reversing image works
-    imgname = "C:/Users/95286/Documents/damic_images/FS_Avg_Img_10.fits"
+    imgname = "../Img_11.fits"
 
     header, data = readFits.read(imgname)
 
-    normalImage = DamicImage(data[:,:,-1], False, "normalImage test")
-    reverseImage = DamicImage(data[:,:,-1], True, "forward test")
+    normalImage = DamicImage(data[:, :, -1], False, "normalImage test")
+    reverseImage = DamicImage(data[:, :, -1], True, "forward test")
 
-    normalImage.histogramImage(normalImage.image, minRange=80)
-    reverseImage.histogramImage(reverseImage.image, minRange=80)
+    normalImage.histogramImage(minRange=80)
+    reverseImage.histogramImage(minRange=80)
     reverseImage.reverseHistogram()
 
     fig, axs = plt.subplots(1, 2, figsize=(14, 8))

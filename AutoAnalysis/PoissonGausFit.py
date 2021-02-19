@@ -3,28 +3,31 @@ import scipy.stats
 import scipy.optimize as optimize
 import readFits
 import matplotlib.pyplot as plt
-from scipy.special import factorial
+from scipy.special import factorial, erf
 import lmfit
 import DamicImage
 
 
-
-def computeGausPoissDist(damicImage, aduConversion=-1, npoisson=10):
+def computeGausPoissDist(damicImage, aduConversion=-1, npoisson=10, darkCurrent=-1):
     """
         Computes pixel distribution as a convolution of gaussian with poisson
     """
 
+    binwidth = np.diff(damicImage.edges)[0]
 
     # Set parameters to the fit
     params = lmfit.Parameters()
     params.add("sigma", value=damicImage.mad)
-    params.add("lamb", value=0.5, min=0)
+    if darkCurrent > 0:
+        params.add("lamb", value=darkCurrent, vary=False) 
+    else:
+        params.add("lamb", value=-1*darkCurrent, min=0)
     params.add("offset", value=damicImage.med)
     if aduConversion > 0:
         params.add("ADU", value=aduConversion, vary=False)
     else:
-        params.add("ADU", value=5)
-    params.add("N", value=damicImage.image.size)
+        params.add("ADU", value=-1*aduConversion)
+    params.add("N", value=damicImage.image.size*binwidth)
     params.add("npoisson", value=npoisson, vary=False)
     minimized = lmfit.minimize(lmfitGausPoisson, params, args=(damicImage.centers, damicImage.hpix))
 
@@ -57,7 +60,7 @@ def fGausPoisson(x, *par):
 
     y = 0
     for k in range(npoiss):
-        y += ( lamb**k * np.exp(-lamb) / factorial(k) * np.exp( - (a*k - (x - offset))**2 / (2 * sigma**2)) )
+        y += ( lamb**k * np.exp(-lamb) / factorial(k) * np.exp( - (a*k - (x - offset))**2 / (2 * sigma**2)) ) 
 
     return y * N / np.sqrt(2 * np.pi * sigma**2)
 
@@ -115,7 +118,7 @@ def parseFitMinimum(fitmin):
 
     params = fitmin.params
     output = {}
-    output["sigma"]  = [ params["sigma"].value, params["sigma"].stderr ]
+    output["sigma"]  = [ params["sigma"].value, params["sigma"].stderr ] 
     output["lambda"] = [ params["lamb"].value,  params["lamb"].stderr  ]
     output["ADU"]    = [ params["ADU"].value,   params["ADU"].stderr   ]
 
@@ -132,14 +135,13 @@ def paramsToList(params):
 
 if __name__ == "__main__":
 
-    filename = "C:/Users/95286/Documents/damic_images/FS_Avg_Img_17.fits"
+    filename = "../FS_Avg_Img_27.fits"
     # filename = "../Img_00.fits"
 
     header, data = readFits.read(filename)
 
     # Test datark current
     damicimage = DamicImage.DamicImage(data[:, :, -1], reverse=False, minRange=500)
-    plt.figure()
     plt.hist(damicimage.centers, bins=damicimage.edges, weights=damicimage.hpix) # Plot histogram of data
 
 
