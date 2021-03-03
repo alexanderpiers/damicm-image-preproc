@@ -1,0 +1,11 @@
+astropy
+black
+ipython
+lmfit
+matplotlib
+opencv-python
+palettable
+pip-chill
+pytest-astropy
+regex
+tabulate
