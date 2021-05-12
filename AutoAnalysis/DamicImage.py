@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import readFits
 import scipy.stats
 import trackMasking as tk
-import PixelDistribution
+# import PixelDistribution
 
 class Image(object):
     """
@@ -150,24 +150,24 @@ class MaskedImage(DamicImage):
         super(MaskedImage,self).__init__(self.image, reverse, filename, minRange)
 
 
-    def mask(self):
-  		# Create a mask and remove all the pixels around identified tracks
-  	    # Ouputs:
-  	    # maskedImage - a 1-d array with all the tracks removed.
+    # def mask(self):
+  		# # Create a mask and remove all the pixels around identified tracks
+  	 #    # Ouputs:
+  	 #    # maskedImage - a 1-d array with all the tracks removed.
 
-    	radius = 2
-    	maxi, mini = PixelDistribution.findPeakPosition(self.hpix,self.centers,nMovingAverage=4)
+    # 	radius = 2
+    # 	maxi, mini = PixelDistribution.findPeakPosition(self.hpix,self.centers,nMovingAverage=4)
 
-    	separation = int(maxi[1]-maxi[0])
-    	offset = maxi[0]
+    # 	separation = int(maxi[1]-maxi[0])
+    # 	offset = maxi[0]
 
-    	fitLamda, volume, c2dof = tk.lsFit(self.hpix, self.edges ,separation)
-    	self.threshold = tk.calcThreshold(fitLamda, self.image.size, separation, offset)
+    # 	fitLamda, volume, c2dof = tk.lsFit(self.hpix, self.edges ,separation)
+    # 	self.threshold = tk.calcThreshold(fitLamda, self.image.size, separation, offset)
 
-    	mask = tk.mask(self.image,self.threshold,radius)
-    	maskedImage = self.image[mask].flatten()
+    # 	mask = tk.mask(self.image,self.threshold,radius)
+    # 	maskedImage = self.image[mask].flatten()
 
-    	return maskedImage
+    # 	return maskedImage
 
 
 if __name__ == "__main__":

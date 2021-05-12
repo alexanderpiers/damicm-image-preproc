@@ -1,53 +1,53 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-from PixelDistribution import findPeakPosition
+# from PixelDistribution import findPeakPosition
 import scipy.stats as sta
 from scipy.optimize import curve_fit
 
 
 
 #Create mask
-def mask(image,threshold,radius):
+def mask(image,threshold,xradius,yradius):
     xsize = image.shape[0]
     ysize = image.shape[1]
     mask1 = np.ones((xsize, ysize),dtype = bool)
     for ii in range(xsize):
         for jj in range(ysize):
             if(image[ii,jj] >= threshold):
-                if(ii < radius):
-                    if(jj < radius):
-                        mask1[:(ii+radius+1),:(jj+radius+1)] = False
-                    elif((ysize - jj) <= radius):
-                        mask1[:(ii+radius+1),(jj-radius):] = False
+                if(ii < xradius):
+                    if(jj < yradius):
+                        mask1[:(ii+xradius+1),:(jj+yradius+1)] = False
+                    elif((ysize - jj) <= yradius):
+                        mask1[:(ii+xradius+1),(jj-yradius):] = False
                     else:
-                        mask1[:(ii+radius+1),(jj-radius):(jj+radius+1)] = False
-                elif((xsize - ii) <= radius):
-                    if(jj < radius):
-                        mask1[(ii-radius):,:(jj+radius+1)] = False
-                    elif((ysize - jj) <= radius):
-                        mask1[(ii-radius):,(jj-radius):] = False
+                        mask1[:(ii+xradius+1),(jj-yradius):(jj+yradius+1)] = False
+                elif((xsize - ii) <= xradius):
+                    if(jj < yradius):
+                        mask1[(ii-xradius):,:(jj+yradius+1)] = False
+                    elif((ysize - jj) <= yradius):
+                        mask1[(ii-xradius):,(jj-yradius):] = False
                     else:
-                        mask1[(ii-radius):,(jj-radius):(jj+radius+1)] = False
+                        mask1[(ii-xradius):,(jj-yradius):(jj+yradius+1)] = False
                 else:
-                    if(jj < radius):
-                        mask1[(ii-radius):(ii+radius+1),:(jj+radius+1)] = False
-                    elif((ysize - jj) <= radius):
-                        mask1[(ii-radius):(ii+radius+1),(jj-radius):] = False
+                    if(jj < yradius):
+                        mask1[(ii-xradius):(ii+xradius+1),:(jj+yradius+1)] = False
+                    elif((ysize - jj) <= yradius):
+                        mask1[(ii-xradius):(ii+xradius+1),(jj-yradius):] = False
                     else:
-                        mask1[(ii-radius):(ii+radius+1),(jj-radius):(jj+radius+1)] = False
+                        mask1[(ii-xradius):(ii+xradius+1),(jj-yradius):(jj+yradius+1)] = False
     return mask1
 
 
 
-#Estimate Lamda
-def calcLamda(distribution,bins,totalNum):
+# #Estimate Lamda
+# def calcLamda(distribution,bins,totalNum):
 
-    maxi,mini = findPeakPosition(distribution,bins,nMovingAverage=4)
-    indexMini = np.argwhere(bins == mini[0])
-    integral = peakVolume(0,indexMini,distribution)
+#     maxi,mini = findPeakPosition(distribution,bins,nMovingAverage=4)
+#     indexMini = np.argwhere(bins == mini[0])
+#     integral = peakVolume(0,indexMini,distribution)
 
-    return -np.log(integral/totalNum)
+#     return -np.log(integral/totalNum)
 
 
 
@@ -68,63 +68,63 @@ def calcThreshold(lamda,totalNum,separation,offset):
     return x*separation + offset
 
 
-def normalFit(distribution,bins,separation):
-    maxi,mini = findPeakPosition(distribution,bins,nMovingAverage=4)
-    mini1 = np.argwhere(bins == maxi[0])[0,0] + int(separation/2)
-    central = bins+0.5
+# def normalFit(distribution,bins,separation):
+#     maxi,mini = findPeakPosition(distribution,bins,nMovingAverage=4)
+#     mini1 = np.argwhere(bins == maxi[0])[0,0] + int(separation/2)
+#     central = bins+0.5
 
-    # print("maxi = ",maxi)
-    # print("mini=",mini)
-    index = [0,mini1,mini1+separation,mini1+2*separation]
-
-
-    mu = np.zeros(3)
-    sig = np.zeros(3)
-    volume = np.zeros(3)
+#     # print("maxi = ",maxi)
+#     # print("mini=",mini)
+#     index = [0,mini1,mini1+separation,mini1+2*separation]
 
 
-    for i in range(3):
-        a = central[index[i]:index[i+1]]
-        volume[i] = peakVolume(index[i],index[i+1],distribution)
-        para, pcov = curve_fit(gaussian,a,distribution[index[i]:index[i+1]]/volume[i],[maxi[0]+i*separation,1])
-        mu[i] = para[0]
-        sig[i] = para[1]
+#     mu = np.zeros(3)
+#     sig = np.zeros(3)
+#     volume = np.zeros(3)
 
 
-    return mu, sig, volume
+#     for i in range(3):
+#         a = central[index[i]:index[i+1]]
+#         volume[i] = peakVolume(index[i],index[i+1],distribution)
+#         para, pcov = curve_fit(gaussian,a,distribution[index[i]:index[i+1]]/volume[i],[maxi[0]+i*separation,1])
+#         mu[i] = para[0]
+#         sig[i] = para[1]
 
 
-def lsFit(distribution,bins,separation,threshold=100):
-
-    maxi, mini = findPeakPosition(distribution, bins, nMovingAverage=4)
-    indexMini = np.argwhere(bins == maxi[0])[0,0] + int(separation/2)
-
-    num = int(threshold/separation)+1
-    index = [0,indexMini]
-    peaks = np.zeros(num)
-
-    for i in range(1,num):
-        if(i > 1):
-            index.append(i*separation+indexMini)
-        peaks[i-1] = peakVolume(index[i-1],index[i],distribution)
+#     return mu, sig, volume
 
 
-    volume = np.sum(peaks)
-    a = np.arange(num)
-    lamb,pcov = curve_fit(poisson,a,peaks/volume)
+# def lsFit(distribution,bins,separation,threshold=100):
+
+#     maxi, mini = findPeakPosition(distribution, bins, nMovingAverage=4)
+#     indexMini = np.argwhere(bins == maxi[0])[0,0] + int(separation/2)
+
+#     num = int(threshold/separation)+1
+#     index = [0,indexMini]
+#     peaks = np.zeros(num)
+
+#     for i in range(1,num):
+#         if(i > 1):
+#             index.append(i*separation+indexMini)
+#         peaks[i-1] = peakVolume(index[i-1],index[i],distribution)
 
 
-    chi = np.zeros(num)
-    trueVals = np.zeros(num)
-    for i in range(num):
-        trueVals[i] = round(int(volume*sta.poisson.pmf(i,lamb)))
-        chi[i] = (peaks[i]-volume*sta.poisson.pmf(i,lamb))**2/(volume*sta.poisson.pmf(i,lamb))
-    # print("chi = ",chi)
-    # print("peaks = ", peaks)
-    # print("trueVal = ", trueVals)
-    c2dof = sum(chi)/(num-2)
+#     volume = np.sum(peaks)
+#     a = np.arange(num)
+#     lamb,pcov = curve_fit(poisson,a,peaks/volume)
 
-    return float(lamb),volume,c2dof
+
+#     chi = np.zeros(num)
+#     trueVals = np.zeros(num)
+#     for i in range(num):
+#         trueVals[i] = round(int(volume*sta.poisson.pmf(i,lamb)))
+#         chi[i] = (peaks[i]-volume*sta.poisson.pmf(i,lamb))**2/(volume*sta.poisson.pmf(i,lamb))
+#     # print("chi = ",chi)
+#     # print("peaks = ", peaks)
+#     # print("trueVal = ", trueVals)
+#     c2dof = sum(chi)/(num-2)
+
+#     return float(lamb),volume,c2dof
 
 
 def peakVolume(lower,upper,distribution):
