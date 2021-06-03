@@ -235,8 +235,8 @@ def computeDarkCurrent(damicImage, nMovingAverage=10, nAdditionalPeaks=2):
     # Perform the Poisson fit to the integral
     try:
         # Add a zero number of pixels to the next electron bin
-        vNElectrons.append(vNElectrons[-1] + 1)
-        vNPixels.append(0)
+        #vNElectrons.append(vNElectrons[-1] + 1)
+        #vNPixels.append(0)
 
         # Perform fit to poisson distribution
         poissonMean = np.sum([x * y for x, y in zip(vNElectrons, vNPixels)]) / np.sum(
@@ -256,7 +256,7 @@ def computeDarkCurrent(damicImage, nMovingAverage=10, nAdditionalPeaks=2):
     return poissonParam[0], np.sqrt(poissonCov[0][0])
 
 
-def findPeakPosition(histogram, bins, nMovingAverage=10, dthresh=2):
+def findPeakPosition(histogram, bins, nMovingAverage=10, dthresh=1):
     """
         Smooths the histogram of pixel values and searches for peaks (maxima and minima) position
     """

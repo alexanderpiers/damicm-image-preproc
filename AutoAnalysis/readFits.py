@@ -6,7 +6,7 @@ import palettable
 
 def read(filename):
     """
-	Reads the fits file from filename and returns the header information and 
+	Reads the fits file from filename and returns the header information and
 	a numpy array of the data (nrows, ncolumns, nskips)
 	"""
 

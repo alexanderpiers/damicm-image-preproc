@@ -156,4 +156,5 @@ if __name__ == "__main__":
     plt.plot(x, fGausPoisson(x, *par), "--r")
     plt.yscale("log")
     plt.ylim(0.01, params["N"])
+
     plt.show()
