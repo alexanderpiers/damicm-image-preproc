@@ -149,27 +149,18 @@ class MaskedImage(DamicImage):
 			image = MaskedImage(data, reverse=<bool>, filename=<string>, minRange=<double>)
 
     """
-    def __init__(self, img, reverse=True, filename="", minRange=200):
-        super(MaskedImage, self).__init__(img, reverse, filename, minRange)
-        self.image = self.mask()
-        super(MaskedImage,self).__init__(self.image, reverse, filename, minRange)
+    def __init__(self, img, reverse=True, filename="", minRange=200, bw=1, maskThreshold=16000, maskRadius=1):
+        super(MaskedImage, self).__init__(img, reverse, filename, minRange, bw)
+        self.mask = []
+        self.image = self.mask(maskThreshold, maskRadius)
+        super(MaskedImage,self).__init__(self.image, reverse, filename, minRange, bw)
 
 
-    def mask(self):
+    def mask(self, threshold, radius):
   		# Create a mask and remove all the pixels around identified tracks
   	    # Ouputs:
-  	    # maskedImage - a 1-d array with all the tracks removed.
 
-    	radius = 2
-    	maxi, mini = PixelDistribution.findPeakPosition(self.hpix,self.centers,nMovingAverage=4)
-
-    	separation = int(maxi[1]-maxi[0])
-    	offset = maxi[0]
-
-    	fitLamda, volume, c2dof = tk.lsFit(self.hpix, self.edges ,separation)
-    	self.threshold = tk.calcThreshold(fitLamda, self.image.size, separation, offset)
-
-    	mask = tk.mask(self.image,self.threshold,radius)
+    	self.mask = tk.mask(self.image, threshold, radius)
     	maskedImage = self.image[mask].flatten()
 
     	return maskedImage
