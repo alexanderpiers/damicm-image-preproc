@@ -6,7 +6,7 @@ import palettable
 import argparse
 import scipy.stats
 
-sys.path.append("/home/damic/Documents/damicm-image-preproc/AutoAnalysis")
+sys.path.append("/home/apiers/damicm/damicm-image-preproc/AutoAnalysis")
 
 import PoissonGausFit as pgf 
 import readFits
@@ -39,11 +39,12 @@ if __name__ == '__main__':
 	minres = pgf.computeGausPoissDist(img, aduConversion=aduConversion, npoisson=30, darkCurrent=-1)
 	params = minres.params
 
-
+	medSubImage = -1 * (img.image - params["offset"])
+	print(img.image.shape)
 	# Use fit information to make an educated guess on how much to mask.
 	nElectronMask = 10
-	maskThreshold = params["offset"] + nElectronMask * params["ADU"]
-	maskImage = DamicImage.MaskedImage(img.image, bw=1, reverse=reverse, maskThreshold=maskThreshold, maskRadiusX=10, maskRadiusY=3)
+	maskThreshold = nElectronMask * params["ADU"]
+	maskImage = DamicImage.MaskedImage(medSubImage, bw=0.25, reverse=False, maskThreshold=maskThreshold, maskRadiusX=10, maskRadiusY=3)
 	minres = pgf.computeGausPoissDist(maskImage, aduConversion=aduConversion, npoisson=30, darkCurrent=-1)
 	params = minres.params
 
@@ -69,13 +70,14 @@ if __name__ == '__main__':
 	x = np.linspace(maskImage.centers[0], maskImage.centers[-1], 2000)
 	ax[1].plot(x, pgf.fGausPoisson(x, *par), "--r", linewidth=3)
 	ax[1].set_xlabel("Pixel Value", fontsize=14)
-	plt.yscale("log")
+	ax[1].set_yscale("log")
 	ax[1].set_ylim(0.05, params["N"] / 2)
-	ax[1].set_xlim(maskImage.centers[maskImage.hpix > 0][0] - 10, img.edges[-1])
+	ax[1].set_xlim(maskImage.centers[maskImage.hpix > 0][0] - 10, maskImage.edges[-1])
 	fig.suptitle(filename, fontsize=14)
 	ax[1].legend([r"$\sigma$=%.2f e-, $\lambda$=%.2f e- / pix / exposure"%(params["sigma"].value / params["ADU"].value, params["lamb"].value)], fontsize=16)
 
-	ax[2].imshow(maskImage.mask, aspect="auto", cmap="gray")
+	
+	ax[2].imshow(maskImage.mask.astype(int), aspect="auto", cmap="gray")
 	ax[2].set_xlabel("x [pixels]", fontsize=14)
 	ax[2].set_ylabel("y [pixels]", fontsize=14)	
 

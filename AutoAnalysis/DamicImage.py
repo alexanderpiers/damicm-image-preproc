@@ -145,17 +145,16 @@ class MaskedImage(DamicImage):
     def __init__(self, img, reverse=True, filename="", minRange=200, bw=1, maskThreshold=16000, maskRadiusX=1, maskRadiusY=1):
         super(MaskedImage, self).__init__(img, reverse, filename, minRange, bw)
         self.mask = []
-        self.image = self.mask(maskThreshold, maskRadiusX, maskRadiusY)
+        self.image = self.generateMask(maskThreshold, maskRadiusX, maskRadiusY)
         super(MaskedImage,self).__init__(self.image, reverse, filename, minRange, bw)
 
-
-    def mask(self, threshold, radiusx, radiusy):
+    def generateMask(self, threshold, radiusx, radiusy):
   		# Create a mask and remove all the pixels around identified tracks
   	    # Ouputs:
 
-    	self.mask = tk.mask(self.image, threshold, radiusx, radiusy)
-    	maskedImage = self.image[mask].flatten()
-
+        self.mask = tk.mask(self.image, threshold, radiusx, radiusy)
+        maskedImage = self.image[self.mask].flatten()
+        return maskedImage
    
 if __name__ == "__main__":
 
