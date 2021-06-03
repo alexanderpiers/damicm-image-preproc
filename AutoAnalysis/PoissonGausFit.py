@@ -60,7 +60,7 @@ def fGausPoisson(x, *par):
 
     y = 0
     for k in range(npoiss):
-        y += ( lamb**k * np.exp(-lamb) / factorial(k) * np.exp( - (a*k - (x - offset))**2 / (2 * sigma**2)) )
+        y += ( lamb**k * np.exp(-lamb) / factorial(k) * np.exp( - (a*k - (x - offset))**2 / (2 * sigma**2)) ) 
 
     return y * N / np.sqrt(2 * np.pi * sigma**2)
 
@@ -135,6 +135,7 @@ def paramsToList(params):
 if __name__ == "__main__":
 
     filename = "../FS_Avg_Img_27.fits"
+    # filename = "../Img_00.fits"
 
     header, data = readFits.read(filename)
 
@@ -155,4 +156,5 @@ if __name__ == "__main__":
     plt.plot(x, fGausPoisson(x, *par), "--r")
     plt.yscale("log")
     plt.ylim(0.01, params["N"])
+
     plt.show()

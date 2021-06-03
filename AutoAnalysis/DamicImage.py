@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import readFits
 import scipy.stats
 import trackMasking as tk
-import PixelDistribution
+
 
 class Image(object):
     """
@@ -23,9 +23,6 @@ class Image(object):
 
         # Compute usefule statistics on the image
         self.estimateDistributionParameters()
-        self.hpix, self.centers, self.edges = self.histogramImage(img, minRange=minRange)
-
-
         self.histogramImage(minRange=minRange, bw=bw)
 
     def estimateDistributionParameters(self,):
@@ -79,10 +76,10 @@ class Image(object):
                 np.ceil(self.med + nsigma * self.mad), bw
             )
 
-        hpix, edges = np.histogram(image.flatten(), bins=bins)
+        hpix, edges = np.histogram(self.image, bins=bins)
         centers = edges[:-1] + np.diff(edges)[0] / 2
 
-        #self.hpix, self.centers, self.edges = hpix, centers, edges
+        self.hpix, self.centers, self.edges = hpix, centers, edges
 
         return hpix, centers, edges
 
@@ -107,10 +104,6 @@ class Image(object):
         ax.set_xlabel("Pixel Value [ADU]", fontsize=14)
 
         return fig, ax
-
-
-
-
 
 class DamicImage(Image):
     """
@@ -142,7 +135,7 @@ class DamicImage(Image):
 
 class MaskedImage(DamicImage):
     """
-        Accepet the same parameters as DamicImage class and inherit all
+        Accept the same parameters as DamicImage class and inherit all
         the functionalities. Create a mask that remove all the tracks in raw image
 
 		Use:
@@ -163,21 +156,19 @@ class MaskedImage(DamicImage):
     	self.mask = tk.mask(self.image, threshold, radius)
     	maskedImage = self.image[mask].flatten()
 
-    	return maskedImage
-
-
+   
 if __name__ == "__main__":
 
     # Test to see if reversing image works
-    imgname = "C:/Users/95286/Documents/damic_images/FS_Avg_Img_10.fits"
+    imgname = "../Img_11.fits"
 
     header, data = readFits.read(imgname)
 
-    normalImage = DamicImage(data[:,:,-1], False, "normalImage test")
-    reverseImage = DamicImage(data[:,:,-1], True, "forward test")
+    normalImage = DamicImage(data[:, :, -1], False, "normalImage test")
+    reverseImage = DamicImage(data[:, :, -1], True, "forward test")
 
-    normalImage.histogramImage(normalImage.image, minRange=80)
-    reverseImage.histogramImage(reverseImage.image, minRange=80)
+    normalImage.histogramImage(minRange=80)
+    reverseImage.histogramImage(minRange=80)
     reverseImage.reverseHistogram()
 
     fig, axs = plt.subplots(1, 2, figsize=(14, 8))
