@@ -41,11 +41,11 @@ class Image(object):
             self.med = 0
             self.mad = 1
         else:
-            self.med = np.median(self.image[self.image > 0])
+            self.med = np.median(self.image)
             self.mad = np.max(
                 [
                     scipy.stats.median_absolute_deviation(
-                        self.image[self.image > 0], axis=None
+                        self.image, axis=None
                     ),
                     1,
                 ]

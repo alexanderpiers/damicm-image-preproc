@@ -13,26 +13,26 @@ def mask(image,threshold,xradius,yradius):
     for ii in range(xsize):
         for jj in range(ysize):
             if(image[ii,jj] >= threshold):
-                if(ii < xradius):
-                    if(jj < yradius):
-                        mask1[:(ii+xradius+1),:(jj+yradius+1)] = False
-                    elif((ysize - jj) <= yradius):
-                        mask1[:(ii+xradius+1),(jj-yradius):] = False
+                if(ii < yradius):
+                    if(jj < xradius):
+                        mask1[:(ii+yradius+1),:(jj+xradius+1)] = False
+                    elif((ysize - jj) <= xradius):
+                        mask1[:(ii+yradius+1),(jj-xradius):] = False
                     else:
-                        mask1[:(ii+xradius+1),(jj-yradius):(jj+yradius+1)] = False
-                elif((xsize - ii) <= xradius):
-                    if(jj < yradius):
-                        mask1[(ii-xradius):,:(jj+yradius+1)] = False
-                    elif((ysize - jj) <= yradius):
-                        mask1[(ii-xradius):,(jj-yradius):] = False
+                        mask1[:(ii+yradius+1),(jj-xradius):(jj+xradius+1)] = False
+                elif((xsize - ii) <= yradius):
+                    if(jj < xradius):
+                        mask1[(ii-yradius):,:(jj+xradius+1)] = False
+                    elif((ysize - jj) <= xradius):
+                        mask1[(ii-yradius):,(jj-xradius):] = False
                     else:
-                        mask1[(ii-xradius):,(jj-yradius):(jj+yradius+1)] = False
+                        mask1[(ii-yradius):,(jj-xradius):(jj+xradius+1)] = False
                 else:
-                    if(jj < yradius):
-                        mask1[(ii-xradius):(ii+xradius+1),:(jj+yradius+1)] = False
+                    if(jj < xradius):
+                        mask1[(ii-yradius):(ii+yradius+1),:(jj+xradius+1)] = False
                     elif((ysize - jj) <= yradius):
-                        mask1[(ii-xradius):(ii+xradius+1),(jj-yradius):] = False
+                        mask1[(ii-yradius):(ii+yradius+1),(jj-xradius):] = False
                     else:
-                        mask1[(ii-xradius):(ii+xradius+1),(jj-yradius):(jj+yradius+1)] = False
+                        mask1[(ii-yradius):(ii+yradius+1),(jj-xradius):(jj+xradius+1)] = False
     return mask1
 

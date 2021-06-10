@@ -33,19 +33,25 @@ if __name__ == '__main__':
 	# Read data
 	header, data = readFits.read(filename)
 
-	print(header["NDCMS"])
+	nskips = header["NDCMS"]
 
 	img = DamicImage.DamicImage(np.mean(data[1:,:,1:-1], axis=-1), bw=1, reverse=reverse)
-	minres = pgf.computeGausPoissDist(img, aduConversion=aduConversion, npoisson=30, darkCurrent=-1)
+	minres = pgf.computeGausPoissDist(img, aduConversion=aduConversion, npoisson=30, darkCurrent=-1, sigma=img.mad / np.sqrt(nskips))
 	params = minres.params
+	print(lmfit.fit_report(minres))
 
 	medSubImage = -1 * (img.image - params["offset"])
 	print(img.image.shape)
 	# Use fit information to make an educated guess on how much to mask.
-	nElectronMask = 10
+	nElectronMask = 200
 	maskThreshold = nElectronMask * params["ADU"]
-	maskImage = DamicImage.MaskedImage(medSubImage, bw=0.25, reverse=False, maskThreshold=maskThreshold, maskRadiusX=10, maskRadiusY=3)
-	minres = pgf.computeGausPoissDist(maskImage, aduConversion=aduConversion, npoisson=30, darkCurrent=-1)
+	maskImage = DamicImage.MaskedImage(medSubImage, bw=0.25, reverse=False, maskThreshold=maskThreshold, maskRadiusX=2, maskRadiusY=2)
+	print(maskImage.med)
+	print(maskImage.mad)
+	print(np.median(maskImage.image))
+	print(maskImage.image.size)
+	print(img.image.size)
+	minres = pgf.computeGausPoissDist(maskImage, aduConversion=aduConversion, npoisson=60, darkCurrent=-1, sigma=maskImage.mad / np.sqrt(nskips))
 	params = minres.params
 
 
