@@ -36,20 +36,20 @@ class Image(object):
 	        mad - double of the median absolute deviation of the pixels excluding zeros
 	    """
 
-        if np.all(self.image <= 0):
-            # If all pixels are saturated, median = 0, mad = 1
-            self.med = 0
-            self.mad = 1
-        else:
-            self.med = np.median(self.image)
-            self.mad = np.max(
-                [
-                    scipy.stats.median_absolute_deviation(
-                        self.image, axis=None
-                    ),
-                    1,
-                ]
-            )
+    # if np.all(self.image <= 0):
+    #     # If all pixels are saturated, median = 0, mad = 1
+    #     self.med = 0
+    #     self.mad = 1
+    # else:
+        self.med = np.median(self.image)
+        self.mad = np.max(
+            [
+                scipy.stats.median_absolute_deviation(
+                    self.image, axis=None
+                ),
+                1,
+            ]
+        )
 
         return self.med, self.mad
 
@@ -64,7 +64,7 @@ class Image(object):
 			centers - (nbins, ) numpy  array of the bin center values
 			edges - (nbins+1, ) numpy array of the bin edges
 		"""
-
+       
         # Create bins. +/- 3*mad
         if minRange and 2 * nsigma * self.mad < minRange:
             bins = np.arange(
@@ -153,6 +153,11 @@ class MaskedImage(DamicImage):
   	    # Ouputs:
 
         self.mask = tk.mask(self.image, threshold, radiusx, radiusy)
+
+        if np.sum(self.mask) == 0:
+            self.mask = np.ones(self.mask.shape, dtype=int)
+
+        print(self.mask)
         maskedImage = self.image[self.mask].flatten()
         return maskedImage
    

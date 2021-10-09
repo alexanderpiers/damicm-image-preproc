@@ -6,7 +6,7 @@ import palettable
 import argparse
 import scipy.stats
 
-sys.path.append("/home/apiers/damicm/damicm-image-preproc/AutoAnalysis")
+sys.path.append("/home/damic/Documents/damicm-image-preproc/AutoAnalysis")
 
 import PoissonGausFit as pgf 
 import readFits
@@ -22,6 +22,7 @@ if __name__ == '__main__':
 	parser.add_argument("-n", "--noise", action="store_true", help="Plot noise as a function of number of skips")
 	parser.add_argument("-r", "--reverse", action="store_true", help="Parity flip of the histogram")
 	parser.add_argument("-k", "--conversion", default=-7, help="ADU / e- Conversion value")
+	parser.add_argument("-l", "--lta", action="store_true", help="LTA data format")
 	args = parser.parse_args()
 
 	# distribute command line args to variables
@@ -29,29 +30,46 @@ if __name__ == '__main__':
 	plotNoise = args.noise
 	reverse = args.reverse
 	aduConversion = float(args.conversion)
+	isLTA = args.lta
 	
 	# Read data
-	header, data = readFits.read(filename)
 
-	nskips = header["NDCMS"]
+	if(isLTA):
+		ext = 4
+		header, data = readFits.readLTA(filename)
+		header = header[ext]
+		nskips = int(header["NSAMP"])
 
-	img = DamicImage.DamicImage(np.mean(data[1:,:,1:-1], axis=-1), bw=1, reverse=reverse)
-	minres = pgf.computeGausPoissDist(img, aduConversion=aduConversion, npoisson=30, darkCurrent=-1, sigma=img.mad / np.sqrt(nskips))
+		data = readFits.reshapeLTAData(data[ext], int(header["NROW"]), int(header["NCOL"]), nskips)
+	else:
+		header, data = readFits.read(filename)
+
+	nskips = int(header["NSAMP"])
+
+	# 1nt(data)
+	bw = 100
+	skoffset = 10
+	# print(np.mean(data[40:,5:,skoffset:-1], axis=-1))
+	dataPositionCuts = data[5:, 5:, skoffset:-1]
+	print(dataPositionCuts.shape)
+	img = DamicImage.DamicImage(np.mean(dataPositionCuts, axis=-1), bw=bw, reverse=reverse)
+
+	print(img.image.shape)
+	minres = pgf.computeGausPoissDist(img, aduConversion=aduConversion, npoisson=30, darkCurrent=-0.1, sigma=-scipy.stats.median_absolute_deviation(dataPositionCuts, axis=None) / np.sqrt(nskips) / 2)
 	params = minres.params
 	print(lmfit.fit_report(minres))
 
-	medSubImage = -1 * (img.image - params["offset"])
-	print(img.image.shape)
+	medSubImage = (1, -1)[reverse] * (img.image - params["offset"])
+
 	# Use fit information to make an educated guess on how much to mask.
-	nElectronMask = 200
+	nElectronMask = 30
 	maskThreshold = nElectronMask * params["ADU"]
-	maskImage = DamicImage.MaskedImage(medSubImage, bw=0.25, reverse=False, maskThreshold=maskThreshold, maskRadiusX=2, maskRadiusY=2)
+	maskImage = DamicImage.MaskedImage(medSubImage, bw=bw, minRange=1000, reverse=False, maskThreshold=maskThreshold, maskRadiusX=1, maskRadiusY=0)
 	print(maskImage.med)
 	print(maskImage.mad)
-	print(np.median(maskImage.image))
-	print(maskImage.image.size)
-	print(img.image.size)
-	minres = pgf.computeGausPoissDist(maskImage, aduConversion=aduConversion, npoisson=60, darkCurrent=-1, sigma=maskImage.mad / np.sqrt(nskips))
+	
+
+	minres = pgf.computeGausPoissDist(maskImage, aduConversion=aduConversion, npoisson=60, darkCurrent=-0.4, sigma=-scipy.stats.median_absolute_deviation(dataPositionCuts, axis=None) / np.sqrt(nskips))
 	params = minres.params
 
 
@@ -69,7 +87,7 @@ if __name__ == '__main__':
 
 
 	# ax[1].hist(img.centers, bins=img.edges, weights=img.hpix) # Plot histogram of data
-	ax[1].errorbar(maskImage.centers, maskImage.hpix, yerr=np.sqrt(maskImage.hpix), fmt="ok", markersize=3, alpha=0.8)
+	ax[1].errorbar(maskImage.centers, maskImage.hpix, yerr=np.sqrt(maskImage.hpix), fmt="ok", markersize=3, alpha=0.7)
 
 	# Plot fit results
 	par = pgf.paramsToList(params)
@@ -78,12 +96,12 @@ if __name__ == '__main__':
 	ax[1].set_xlabel("Pixel Value", fontsize=14)
 	ax[1].set_yscale("log")
 	ax[1].set_ylim(0.05, params["N"] / 2)
-	ax[1].set_xlim(maskImage.centers[maskImage.hpix > 0][0] - 10, maskImage.edges[-1])
+	# ax[1].set_xlim(maskImage.centers[maskImage.hpix > 0][0] - 10, maskImage.edges[-1])
 	fig.suptitle(filename, fontsize=14)
 	ax[1].legend([r"$\sigma$=%.2f e-, $\lambda$=%.2f e- / pix / exposure"%(params["sigma"].value / params["ADU"].value, params["lamb"].value)], fontsize=16)
 
 	
-	ax[2].imshow(maskImage.mask.astype(int), aspect="auto", cmap="gray")
+	ax[2].imshow(maskImage.mask.astype(int), aspect="auto", cmap="gray", vmin=0, vmax=1)
 	ax[2].set_xlabel("x [pixels]", fontsize=14)
 	ax[2].set_ylabel("y [pixels]", fontsize=14)	
 
@@ -103,18 +121,20 @@ if __name__ == '__main__':
 
 	
 	if plotNoise:
-		nskips = header["NDCMS"]
-		npoints = 10
-		skipsToAverage = np.round(np.logspace(0, np.log10(nskips), npoints)).astype("int")
+		# nskips = header["NDCMS"]
+		print(nskips)
+		npoints = 20
+		skipsToAverage = np.round(np.logspace(np.log10(skoffset), np.log10(nskips), npoints)).astype("int")
 
 		skipperResolution = []
 		skipperResolutionErr = []
 		aduConversion = params["ADU"].value
 		skipsToAverage = np.unique(skipsToAverage)
 		for i, sk in enumerate(skipsToAverage):
-			img = DamicImage.DamicImage(np.mean(data[:,:,:sk], axis=-1), reverse=reverse, )
-			print(data[:,:,:sk].shape)
-			lmmin = pgf.computeGausPoissDist(img, aduConversion=aduConversion, npoisson=100)
+
+			img = DamicImage.DamicImage(np.mean(data[:,:,skoffset:sk+1], axis=-1), reverse=reverse, )
+			print(data[:,:,skoffset:sk+1].shape)
+			lmmin = pgf.computeGausPoissDist(img, aduConversion=aduConversion, npoisson=50, darkCurrent=params["lamb"].value)
 			skipperResolution.append(np.abs(pgf.paramsToList(lmmin.params)[0]))
 			skipperResolutionErr.append(pgf.parseFitMinimum(lmmin)["sigma"][1])
 			# print(lmfit.fit_report(lmmin))
@@ -122,8 +142,8 @@ if __name__ == '__main__':
 		print(skipperResolution)
 		print(skipperResolutionErr)
 		figR, axR = plt.subplots(1, 1)
-		axR.plot(skipsToAverage, skipperResolution, "o", color="k")
-		axR.plot(skipsToAverage, skipperResolution[0] / np.sqrt(skipsToAverage), "--r", linewidth=2)
+		axR.plot(skipsToAverage-skoffset+1, skipperResolution, "o", color="k")
+		axR.plot(skipsToAverage-skoffset+1, skipperResolution[0] / np.sqrt(skipsToAverage-skoffset+1), "--r", linewidth=2)
 		print(skipperResolution)
 		print(skipsToAverage)
 		# fitparam = scipy.optimize.curve_fit(reso, skipsToAverage, skipperResolution)

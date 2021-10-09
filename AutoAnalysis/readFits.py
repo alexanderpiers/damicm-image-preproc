@@ -10,16 +10,22 @@ def readLTA(filename):
     """
 
     fitsImg = fits.open(filename)
-    print(fitsImg)
+    # print(fitsImg)
 
     header = []
     data = []
     for img in fitsImg:
         header.append(img.header)
         data.append(img.data)
+
    
-    print(header)
     return header, data
+
+def reshapeLTAData(data, nrows, ncols, nskips):
+
+    ltadata = np.reshape(data, (nrows, nskips, ncols), "F")
+
+    return np.transpose(ltadata, (0, 2, 1))
 
 def read(filename):
     """
