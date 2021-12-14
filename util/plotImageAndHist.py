@@ -5,6 +5,7 @@ import numpy as np
 import palettable
 import argparse
 import scipy.stats
+from matplotlib.gridspec import GridSpec
 
 sys.path.append("/home/b059ante/Documents/software/damicm-image-preproc/AutoAnalysis")
 
@@ -12,6 +13,10 @@ import PoissonGausFit as pgf
 import readFits
 import DamicImage
 import lmfit
+
+def convertADUtoElectrons(x, offset, conv):
+
+    return (x - offset) / conv
 
 if __name__ == '__main__':
 
@@ -21,6 +26,7 @@ if __name__ == '__main__':
     parser.add_argument("-r", "--reverse", action="store_true", help="Parity flip of the histogram")
     parser.add_argument("-k", "--conversion", default=-7, help="ADU / e- Conversion value")
     parser.add_argument("-l", "--lta", action="store_true", help="LTA data format")
+    parser.add_argument("-e", "--ext", default=2, type=int)
     args = parser.parse_args()
 
     # distribute command line args to variables
@@ -29,11 +35,11 @@ if __name__ == '__main__':
     reverse = args.reverse
     aduConversion = float(args.conversion)
     isLTA = args.lta
+    ext = args.ext
 
 
     # Read data
     if(isLTA):
-        ext = 4
         header, data = readFits.readLTA(filename)
         header = header[ext]
         nskips = int(header["NSAMP"])
@@ -46,10 +52,10 @@ if __name__ == '__main__':
 
     # 1nt(data)
     bw = 50
-    skoffset = 100
+    skoffset = 10
     # print(np.mean(data[40:,5:,skoffset:-1], axis=-1))
-    dataPositionCuts = data[:, :, skoffset:-1]
-    img = DamicImage.DamicImage(np.mean(dataPositionCuts, axis=-1), bw=bw, reverse=reverse, minRange=5000)
+    dataPositionCuts = data[:, 10:, skoffset:]
+    img = DamicImage.DamicImage(np.mean(dataPositionCuts, axis=-1), bw=bw, reverse=reverse, minRange=np.abs(8*aduConversion))
 
     print(img.image.shape)
     minres = pgf.computeGausPoissDist(img, aduConversion=aduConversion, npoisson=30, darkCurrent=-0.1, sigma=-scipy.stats.median_absolute_deviation(dataPositionCuts, axis=None) / np.sqrt(nskips) / 2)
@@ -68,13 +74,24 @@ if __name__ == '__main__':
 
 
     minres = pgf.computeGausPoissDist(maskImage, aduConversion=aduConversion, npoisson=60, darkCurrent=-0.4, sigma=-scipy.stats.median_absolute_deviation(dataPositionCuts, axis=None) / np.sqrt(nskips))
-    params = minres.params
+    # params = minres.params
 
 
     print(lmfit.fit_report(minres))
 
 
-    fig, ax = plt.subplots(2, 1, figsize=(12, 10))
+    if(plotNoise):
+        fig = plt.figure(figsize=(16, 10), constrained_layout=True)
+        gs = GridSpec(4, 3, figure=fig)
+        ax1 = fig.add_subplot(gs[:2, :2])
+        ax2 = fig.add_subplot(gs[2:, :2])
+        ax3 = fig.add_subplot(gs[:,2])
+        ax = [ax1, ax2, ax3]
+    else:
+        fig, ax = plt.subplots(2, 1, figsize=(12, 10))
+
+
+
     offset = img.med - 5 * img.mad
     colorGradient = palettable.cmocean.sequential.Amp_20.mpl_colormap
     cax = ax[0].imshow(img.image, aspect="auto",  cmap=colorGradient,interpolation="none", vmin=img.med-3*img.mad, vmax=img.med+3*img.mad,)
@@ -84,14 +101,18 @@ if __name__ == '__main__':
 
 
     # ax[1].hist(img.centers, bins=img.edges, weights=img.hpix) # Plot histogram of data
-    ax[1].errorbar(img.centers, img.hpix, yerr=np.sqrt(img.hpix), fmt="ok", markersize=3, alpha=0.7)
+    ax[1].errorbar(convertADUtoElectrons(img.centers, params["offset"], params["ADU"]), img.hpix, yerr=np.sqrt(img.hpix), fmt="ok", markersize=3, alpha=0.7)
+    # print(params["offset"])
+    # ax[1].errorbar(img.centers, img.hpix, yerr=np.sqrt(img.hpix), fmt="ok", markersize=3, alpha=0.7)
 
     # Plot fit results
     par = pgf.paramsToList(paramsRaw)
     x = np.linspace(maskImage.centers[0], maskImage.centers[-1], 2000)
     x = np.linspace(img.centers[0], img.centers[-1], 2000)
-    ax[1].plot(x, pgf.fGausPoisson(x, *par), "--r", linewidth=3)
-    ax[1].set_xlabel("Pixel Value", fontsize=14)
+    xe = convertADUtoElectrons(x, params["offset"], params["ADU"])
+    ax[1].plot(xe, pgf.fGausPoisson(x, *par), "--r", linewidth=3)
+    ax[1].set_xlabel("Pixel Value [e-]", fontsize=14)
+    ax[1].set_ylabel("Counts", fontsize=14)
     ax[1].set_yscale("log")
     ax[1].set_ylim(0.05, params["N"] / 2)
     # ax[1].set_xlim(maskImage.centers[maskImage.hpix > 0][0] - 10, maskImage.edges[-1])
@@ -118,8 +139,8 @@ if __name__ == '__main__':
     # ax1.set_yscale("log")
 
     figsk, axsk = plt.subplots(1, 1, figsize=(12, 8))
-    for i in range(5):
-        axsk.plot(data[5,i,:], "o", alpha=0.25)
+    for i in range(8):
+        axsk.plot(data[5,5+i,:], "o", alpha=0.25)
 
     axsk.set_xlabel("Skip Number", fontsize=16)
     axsk.set_ylabel("Pixel Value [ADU]", fontsize=16)
@@ -143,18 +164,18 @@ if __name__ == '__main__':
             skipperResolutionErr.append(pgf.parseFitMinimum(lmmin)["sigma"][1])
             # print(lmfit.fit_report(lmmin))
 
-        print(skipperResolution)
-        print(skipperResolutionErr)
-        figR, axR = plt.subplots(1, 1)
-        axR.plot(skipsToAverage-skoffset+1, skipperResolution, "o", color="k")
-        axR.plot(skipsToAverage-skoffset+1, skipperResolution[0] / np.sqrt(skipsToAverage-skoffset+1), "--r", linewidth=2)
+        # print(skipperResolution)
+        # print(skipperResolutionErr)
+        # figR, axR = plt.subplots(1, 1)
+        ax[2].plot(skipsToAverage-skoffset+1, skipperResolution, "o", color="k")
+        ax[2].plot(skipsToAverage-skoffset+1, skipperResolution[0] / np.sqrt(skipsToAverage-skoffset+1), "--r", linewidth=2)
         print(skipperResolution)
         print(skipsToAverage)
         # fitparam = scipy.optimize.curve_fit(reso, skipsToAverage, skipperResolution)
         # print(fitparam)
-        axR.set_yscale("log")
-        axR.set_xscale("log")
-        axR.set_xlabel("Number of Skips", fontsize=14)
-        axR.set_ylabel("Resolution [ADU]", fontsize=14)
+        ax[2].set_yscale("log")
+        ax[2].set_xscale("log")
+        ax[2].set_xlabel("Number of Skips", fontsize=14)
+        ax[2].set_ylabel("Resolution [ADU]", fontsize=14)
 
     plt.show()
