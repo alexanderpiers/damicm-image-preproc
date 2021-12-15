@@ -9,7 +9,7 @@ import scipy.stats
 import scipy.signal
 import regex as re
 
-sys.path.append("/home/apiers/damicm/damicm-image-preproc/AutoAnalysis")
+sys.path.append("/home/b059ante/Documents/software/damicm-image-preproc/AutoAnalysis")
 
 import PoissonGausFit as pgf 
 import readFits
@@ -21,10 +21,13 @@ import trackMasking as tk
 
 # Defining some default values
 skipOffset = 5
-imagebw = 0.2
+imagebw = 50
 fixADU = 1
 yradius = 1
-xradius = 40
+xradius = 10
+minimumRange=8000
+rowOffset = 1
+colOffset = 3
 
 colors = palettable.cmocean.sequential.Thermal_6.mpl_colors
 
@@ -35,42 +38,42 @@ def convertADUtoElectrons(x, params):
 
 	return (x - offset) / conversion
 
-def plotPixelSpectrum(img, reverse=False):
+def plotPixelSpectrum(img, reverse=False, gain=-1000):
 
 	fig, ax = plt.subplots(1, 1, figsize=(12, 8))
 
 	# Initial Poisson gaus fit
-	fit = pgf.computeGausPoissDist(img, aduConversion=-7, npoisson=40, darkCurrent=-1)
+	fit = pgf.computeGausPoissDist(img, aduConversion=gain, npoisson=40, darkCurrent=-1)
 	params = fit.params
 	par = pgf.paramsToList(params)
 	print(par)
 
 	# Perform image mask
 
-	radius = 10
-	reversedImage = (img.image - params["offset"].value) * -1
-	imageMask = tk.mask(reversedImage, 4 * params["ADU"].value, yradius, xradius)
-	imageMask.astype("int")
+	# radius = 10
+	# reversedImage = (img.image - params["offset"].value)
+	# imageMask = tk.mask(reversedImage, 4 * params["ADU"].value, yradius, xradius)
+	# imageMask.astype("int")
 
-	# img.image[np.logical_not(imageMask)] = 1e6
+	# # img.image[np.logical_not(imageMask)] = 1e6
 
-	figimage, aximage = plt.subplots(1, 1)
-	# cax = aximage.imshow(reversedImage, aspect="auto", vmin=-3*np.std(reversedImage), vmax=3*np.std(reversedImage))
-	cax = aximage.imshow(imageMask, aspect="auto")
-	# figimage.colorbar(cax)
+	# figimage, aximage = plt.subplots(1, 1)
+	# # cax = aximage.imshow(reversedImage, aspect="auto", vmin=-3*np.std(reversedImage), vmax=3*np.std(reversedImage))
+	# cax = aximage.imshow(imageMask, aspect="auto")
+	# # figimage.colorbar(cax)
 
-	# Post masking fit
-	maskimg = DamicImage.DamicImage(img.image[imageMask].flatten(), bw=imagebw, reverse=reverse)
-	fit = pgf.computeGausPoissDist(maskimg, aduConversion=-7, npoisson=40, darkCurrent=-1)
-	params = fit.params
-	par = pgf.paramsToList(params)
-	print(par)
+	# # Post masking fit
+	# maskimg = DamicImage.DamicImage(img.image[imageMask].flatten(), bw=imagebw, reverse=reverse)
+	# fit = pgf.computeGausPoissDist(maskimg, aduConversion=-1000, npoisson=40, darkCurrent=-1)
+	# params = fit.params
+	# par = pgf.paramsToList(params)
+	# print(par)
 
 	# Convert x axis to electrons
-	xelectron = convertADUtoElectrons(maskimg.centers, params)
+	xelectron = convertADUtoElectrons(img.centers, params)
 
 	# Pixel Distribution
-	ax.errorbar(xelectron, maskimg.hpix, yerr=np.sqrt(maskimg.hpix), fmt="ok", markersize=3, alpha=0.7)
+	ax.errorbar(xelectron, img.hpix, yerr=np.sqrt(img.hpix), fmt="ok", markersize=3, alpha=0.7)
 
 
 	# Plot fit results
@@ -82,9 +85,10 @@ def plotPixelSpectrum(img, reverse=False):
 
 	ax.set_xlabel("Pixel Value (e-)", fontsize=16)
 	ax.set_ylabel("Counts / %.2f e-"%( imagebw / params["ADU"].value ), fontsize=16)
-#	ax.set_yscale("log")
+	ax.set_yscale("log")
 	ax.set_ylim(0.05, params["N"].value / 2)
-	ax.set_xlim(xelectron[maskimg.hpix > 0][0] - 1, xelectron[-1])
+	ax.set_xlim(xelectron[img.hpix > 0][0] - 1, xelectron[-1])
+	# ax.set_xlim(-1, 5)
 	ax.legend(["$\sigma$=%.2f e- \n $\lambda$=%.2f e- / pix / exposure"%(params["sigma"].value / params["ADU"].value, params["lamb"].value)], fontsize=16, frameon=False)
 
 
@@ -115,7 +119,7 @@ def plotDarkCurrentRows(fullImage, rowbinswidth=1, reverse=True, mask=False, plo
 	darkcurrent = []
 	darkcurrentErr = []
 
-	fit = pgf.computeGausPoissDist(fullImage, aduConversion=-7, npoisson=20, darkCurrent=-1)
+	fit = pgf.computeGausPoissDist(fullImage, aduConversion=-1000, npoisson=20, darkCurrent=-1)
 	params = fit.params
 
 	if mask:
@@ -133,7 +137,7 @@ def plotDarkCurrentRows(fullImage, rowbinswidth=1, reverse=True, mask=False, plo
 		if mask:
 			data = data[imageMask[i * rowbinswidth : (i+1) * rowbinswidth, :]].flatten()
 
-		img = DamicImage.DamicImage(data, bw=imagebw, reverse=reverse)
+		img = DamicImage.DamicImage(data, bw=imagebw, reverse=reverse, minRange=minimumRange)
 
 		fit = pgf.computeGausPoissDist(img, aduConversion=params["ADU"].value, npoisson=40, darkCurrent=-1)
 
@@ -152,9 +156,10 @@ def plotDarkCurrentRows(fullImage, rowbinswidth=1, reverse=True, mask=False, plo
 
 
 
-
-
-	ax.errorbar(rows, darkcurrent, yerr=darkcurrentErr, fmt="o", color=color)
+	try:
+		ax.errorbar(rows, darkcurrent, yerr=darkcurrentErr, fmt="o", color=color)
+	except:
+		ax.plot(rows, darkcurrent, "o", color=color)
 	ax.set_xlabel("Row Number", fontsize=16)
 	ax.set_ylabel("Dark Current (e- / pixel / row)", fontsize=16)
 
@@ -170,6 +175,9 @@ if __name__ == '__main__':
 	parser.add_argument("-r", "--reverse", action="store_true", help="Parity flip of the histogram")
 	parser.add_argument("-p", "--parameter", help="Perform analysis on a given parameter scan")
 	parser.add_argument("-m", "--mask", action="store_true", help="Mask clusters in image")
+	parser.add_argument("-l", "--lta", action="store_true", help="LTA data")
+	parser.add_argument("-e", "--extension", type=int, default=2)
+	parser.add_argument("-g", "--gain", type=float, default=-1000)
 	args = parser.parse_args()
 
 
@@ -179,8 +187,10 @@ if __name__ == '__main__':
 	reverse = args.reverse
 	parameterScan = args.parameter
 	mask = args.mask
+	uselta = args.lta
+	ext = args.extension
+	gain = args.gain
 
-	print(mask)
 
 	# Split filename into directory and filename
 	# directory, filename = os.path.sdataplit(filename)
@@ -199,17 +209,25 @@ if __name__ == '__main__':
 
 
 		# read data
-		header, data = readFits.read(datafile)
-		data = data[:,:3000,:]
+		if uselta:
+			header, data = readFits.readLTA(datafile)
+			header = header[ext]
+			nskips = int(header["NSAMP"])
+
+			data = readFits.reshapeLTAData(data[ext], int(header["NROW"]), int(header["NCOL"]), nskips)
+		else:
+			header, data = readFits.read(datafile)
+			data = data[:,:3000,:]
 
 
+		data = data[rowOffset:, colOffset:, :]
 		# plot overall spectrum
-		fullImage = DamicImage.DamicImage(np.mean(data[:, :, skipOffset:-1], axis=-1), bw=imagebw, reverse=reverse)
-		fig, ax, fit = plotPixelSpectrum(fullImage, reverse=reverse)
+		fullImage = DamicImage.DamicImage(np.mean(data[:, :, skipOffset:-1], axis=-1), bw=imagebw, reverse=reverse, minRange=minimumRange)
+		fig, ax, fit = plotPixelSpectrum(fullImage, reverse=reverse, gain=gain)
 
 
 		# row dark current
-		axrow = plotDarkCurrentRows(fullImage, plotall=True, mask=mask)
+		axrow = plotDarkCurrentRows(fullImage, plotall=True, mask=mask, reverse=reverse, rowbinswidth=4)
 
 	else:
 		legend = []
