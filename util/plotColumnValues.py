@@ -58,7 +58,7 @@ if __name__ == '__main__':
 
     poptU, _ = curve_fit(fgausCDF, column[1500:], colValueU[1500:]-np.median(colValueU), p0=(Ninit, muInit, sigmaInit))
     poptL, _ = curve_fit(fgausCDF, column[1500:], colValueL[1500:]-np.median(colValueL), p0=(Ninit, muInit, sigmaInit))
-    ax.plot(column, fgausCDF(column, *poptU), "--k", linewidth=3, alpha=0.5, label="Dark Rate={:.2f} e- / pix / hr".format(poptU[0] / 1000 / exposure * 3600))
-    ax.plot(column, fgausCDF(column, *poptL), "--r", linewidth=3, alpha=0.5, label="Dark Rate={:.2f} e- / pix / hr".format(poptL[0] / 1000 / exposure * 3600))
+    ax.plot(column, fgausCDF(column, *poptU), "--k", linewidth=3, alpha=0.5, label="Dark Rate={:.2f} e- / pix / hr".format(-poptU[0] / 1000 / exposure * 3600))
+    ax.plot(column, fgausCDF(column, *poptL), "--r", linewidth=3, alpha=0.5, label="Dark Rate={:.2f} e- / pix / hr".format(-poptL[0] / 1000 / exposure * 3600))
     ax.legend(fontsize=16)
     plt.show()
