@@ -52,9 +52,9 @@ if __name__ == '__main__':
 
     # 1nt(data)
     bw = 50
-    skoffset = 10
+    skoffset = 3
     # print(np.mean(data[40:,5:,skoffset:-1], axis=-1))
-    dataPositionCuts = data[:, 10:, skoffset:]
+    dataPositionCuts = data[1:, 5:, skoffset:]
     img = DamicImage.DamicImage(np.mean(dataPositionCuts, axis=-1), bw=bw, reverse=reverse, minRange=np.abs(8*aduConversion))
 
     print(img.image.shape)
