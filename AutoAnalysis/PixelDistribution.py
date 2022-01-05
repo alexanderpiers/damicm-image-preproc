@@ -324,7 +324,7 @@ def convertValErrToString(param):
 		Output:
 			paramString - "val +/- err"
 	"""
-    return "%.2g +/- %.2g" % (param[0], param[1])
+    return "%.4g +/- %.4g" % (param[0], param[1])
 
 
 

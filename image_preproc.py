@@ -4,6 +4,8 @@ import sys
 import os
 import inspect
 import tabulate
+import numpy as np
+import lmfit
 
 sys.path.append(
     os.path.join(os.path.abspath(os.path.dirname(__file__)), "AutoAnalysis")
@@ -15,6 +17,9 @@ import PoissonGausFit
 import DamicImage
 import constants as c
 
+
+skoffset = 1
+bw = 50
 
 class AnalysisOutput(object):
     """Class that contains the information on the output results of the image analysis"""
@@ -109,24 +114,38 @@ def sortAlphaNumeric(x):
     return sorted(x, key=alphanumericKey)
 
 
-def processImage(filename, headerString):
+def processImage(filename, headerString, analysisOptions):
     """
     Function to do enclose the image processing function. Returns an analysisOutput object 
     """
 
     # Read image
-    header, data = readFits.read(filename)
+    if analysisOptions["uselta"]:
 
-    try:
-        nskips = header["NDCMS"]
-    except KeyError:
-        nskips = 1
+        header, data = readFits.readLTA(filename)
+        header = header[analysisOptions["ext"]]
+        nskips = int(header["NSAMP"])
 
-    # Create skipper
-    reverseHistogram = (1, 0)["Avg" in filename]
-    image = DamicImage.DamicImage(data[:, :, -1], reverse=reverseHistogram)
+        data = readFits.reshapeLTAData(data[analysisOptions["ext"]], int(header["NROW"]), int(header["NCOL"]), nskips)
+
+    else:
+        header, data = readFits.read(filename)
+
+        try:
+            nskips = header["NDCMS"]
+        except KeyError:
+            nskips = 1
+
 
     processedImage = AnalysisOutput(filename, nskips=nskips, header=headerString)
+
+    # Compute Overall image noise (fit to entire image) and skipper noise
+    processedImage.imgNoise = pd.computeImageNoise(data[:, :, skoffset:-1])
+
+    # Create skipper
+    reverseHistogram = analysisOptions["reverse"]
+    image = DamicImage.DamicImage(np.mean( data[:, :, skoffset:-1], axis=-1), reverse=reverseHistogram, bw=bw, minRange=-10*analysisOptions["k"])
+
 
     # Compute average image entropy
     processedImage.aveImgS = pd.imageEntropy(data[:, :, -1])
@@ -136,7 +155,7 @@ def processImage(filename, headerString):
     processedImage.dSdskip = pd.convertValErrToString((entropySlope, entropySlopeErr))
 
     # Try to perform fit of poisson + gauss
-    minresult = PoissonGausFit.computeGausPoissDist(image)
+    minresult = PoissonGausFit.computeGausPoissDist(image, aduConversion=analysisOptions["k"], darkCurrent=-0.05, npoisson=30, sigma=-processedImage.imgNoise / np.sqrt(nskips-skoffset))
 
     # If sucessful parse results, otherwise fall back on individual fits
     if minresult.success:
@@ -166,8 +185,7 @@ def processImage(filename, headerString):
         )
         processedImage.darkCurrent = pd.convertValErrToString((darkCurrent, darkCurrentErr))
 
-    # Compute Overall image noise (fit to entire image) and skipper noise
-    processedImage.imgNoise = pd.computeImageNoise(data[:, :, :-1])
+
 
     return processedImage
 
@@ -223,6 +241,23 @@ def main(argv):
         action="store_true",
         help="Prints output of analysis to terminal instead of saving to file.",
     )
+    parser.add_argument(
+        "-l", 
+        "--lta",
+        action="store_true",
+        help="For LTA data")
+    parser.add_argument(
+        "-k",
+        "--calibration",
+        default=-1000,
+        type=float,
+        help="ADU/e- conversion factor")
+    parser.add_argument(
+        "-e",
+        "--ext",
+        default=2,
+        type=int,
+        help="Image extension from lta data")
 
     commandArgs = parser.parse_args()
 
@@ -232,6 +267,16 @@ def main(argv):
     processAll = commandArgs.all
     recursive = commandArgs.recursive
     printToTerminal = commandArgs.print
+    uselta = commandArgs.lta
+    calibration = commandArgs.calibration
+    extension = commandArgs.ext
+
+    analysisOptions = {"uselta":uselta, "k":calibration, "ext":extension}
+
+    if uselta:
+        analysisOptions["reverse"] = False
+    else:
+        analysisOptions["reverse"] = True
 
     headerString = [
         "filename",
@@ -295,7 +340,7 @@ def main(argv):
             if not (fp in existingImgFiles) or processAll:
 
                 # Process image
-                processedImgFiles.append(processImage(fp, headerString))
+                processedImgFiles.append(processImage(fp, headerString, analysisOptions))
                 print((" ....processed\n", " ....reprocessed\n")[processAll], end="")
 
             else:

@@ -14,7 +14,6 @@ def computeGausPoissDist(damicImage, aduConversion=-1, npoisson=10, darkCurrent=
     """
 
     binwidth = np.diff(damicImage.edges)[0]
-    print("Median: %.2f" % ((damicImage.med)))
     # Set parameters to the fit
     params = lmfit.Parameters()
     if sigma > 0:
