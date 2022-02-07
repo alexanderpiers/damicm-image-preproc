@@ -47,7 +47,7 @@ class Image(object):
                 scipy.stats.median_absolute_deviation(
                     self.image, axis=None
                 ),
-                1,
+                100,
             ]
         )
 

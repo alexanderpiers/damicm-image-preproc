@@ -8,7 +8,7 @@ import lmfit
 import DamicImage
 
 
-def computeGausPoissDist(damicImage, aduConversion=-1, npoisson=10, darkCurrent=-1, sigma=-60):
+def computeGausPoissDist(damicImage, aduConversion=-1, npoisson=10, darkCurrent=-1, sigma=-60, offset=-1):
     """
         Computes pixel distribution as a convolution of gaussian with poisson
     """
@@ -24,14 +24,17 @@ def computeGausPoissDist(damicImage, aduConversion=-1, npoisson=10, darkCurrent=
         params.add("lamb", value=darkCurrent, vary=False) 
     else:
         params.add("lamb", value=-1*darkCurrent, min=0)
-    params.add("offset", value=( damicImage.med )) #damicImage.centers[damicImage.hpix > 0][0]) )
+    if offset > 0:
+        params.add("offset", value=offset, vary=False)
+    else:
+        params.add("offset", value=-1*offset)#damicImage.centers[damicImage.hpix > 0][0]) )
     if aduConversion > 0:
         params.add("ADU", value=aduConversion, vary=False)
     else:
         params.add("ADU", value=-1*aduConversion)
     params.add("N", value=damicImage.image.size*binwidth)
     params.add("npoisson", value=npoisson, vary=False)
-    minimized = lmfit.minimize(lmfitGausPoisson, params, args=(damicImage.centers, damicImage.hpix))
+    minimized = lmfit.minimize(lmfitGausPoisson, params, args=(damicImage.centers, damicImage.hpix, np.sqrt(damicImage.hpix)))
 
     # Operations on the returned values to parse into a useful format
     return minimized
@@ -96,7 +99,7 @@ def fCDFGausPoisson(x, *par):
 
     return y 
 
-def lmfitGausPoisson(param, x, data):
+def lmfitGausPoisson(param, x, data, eps):
     """
     LMFIT function for a gaussian convolved with a poisson distribution
     """
@@ -110,7 +113,10 @@ def lmfitGausPoisson(param, x, data):
     par = [sigma, lamb, offset, a, N, npoiss.value]
 
     model = fGausPoisson(x, *par)
-    return (data-model)
+
+    eps[eps == 0] = 1
+
+    return (data-model)/eps
 
 def parseFitMinimum(fitmin):
     """
