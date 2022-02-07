@@ -20,7 +20,8 @@ import constants as c
 
 skoffset = 1
 bw = 50
-
+rowoffset = 1
+coloffset = 1
 class AnalysisOutput(object):
     """Class that contains the information on the output results of the image analysis"""
 
@@ -140,11 +141,19 @@ def processImage(filename, headerString, analysisOptions):
     processedImage = AnalysisOutput(filename, nskips=nskips, header=headerString)
 
     # Compute Overall image noise (fit to entire image) and skipper noise
-    processedImage.imgNoise = pd.computeImageNoise(data[:, :, skoffset:-1])
-
+    try:
+        processedImage.imgNoise = pd.computeImageNoise(data[:, :, skoffset:-1])
+    except:
+        processedImage.imgNoise = 3500
     # Create skipper
     reverseHistogram = analysisOptions["reverse"]
-    image = DamicImage.DamicImage(np.mean( data[:, :, skoffset:-1], axis=-1), reverse=reverseHistogram, bw=bw, minRange=-10*analysisOptions["k"])
+    meanImage = np.mean( data[rowoffset:, coloffset:, skoffset:-1], axis=-1 )
+    baselineOffset = np.median(meanImage)
+    if analysisOptions["correction"]:
+        medianRowValue = np.median(meanImage, axis=-1)
+        meanImage -= np.reshape( np.tile( medianRowValue, meanImage.shape[-1]), meanImage.shape, order="F")
+        baselineOffset=0
+    image = DamicImage.DamicImage(meanImage, reverse=reverseHistogram, bw=bw, minRange=-10*analysisOptions["k"])
 
 
     # Compute average image entropy
@@ -155,8 +164,7 @@ def processImage(filename, headerString, analysisOptions):
     processedImage.dSdskip = pd.convertValErrToString((entropySlope, entropySlopeErr))
 
     # Try to perform fit of poisson + gauss
-    minresult = PoissonGausFit.computeGausPoissDist(image, aduConversion=analysisOptions["k"], darkCurrent=-0.05, npoisson=30, sigma=-processedImage.imgNoise / np.sqrt(nskips-skoffset))
-
+    minresult = PoissonGausFit.computeGausPoissDist(image, aduConversion=analysisOptions["k"], darkCurrent=-0.05, npoisson=30, offset=-1*baselineOffset, sigma=-processedImage.imgNoise / np.sqrt(nskips-skoffset))
     # If sucessful parse results, otherwise fall back on individual fits
     if minresult.success:
         poisGausFitOut = PoissonGausFit.parseFitMinimum(minresult)
@@ -258,7 +266,14 @@ def main(argv):
         default=2,
         type=int,
         help="Image extension from lta data")
-
+    
+    parser.add_argument(
+        "-m",
+        "--printparams",
+        nargs="*",
+        default=[],
+        help="Arguments of the image analysis object to print out in a list style object")
+    parser.add_argument("--correction", action="store_true")
     commandArgs = parser.parse_args()
 
     # Set command line arguments
@@ -270,8 +285,10 @@ def main(argv):
     uselta = commandArgs.lta
     calibration = commandArgs.calibration
     extension = commandArgs.ext
-
-    analysisOptions = {"uselta":uselta, "k":calibration, "ext":extension}
+    printParams = commandArgs.printparams
+    correction = commandArgs.correction
+    print(printParams)
+    analysisOptions = {"uselta":uselta, "k":calibration, "ext":extension, "correction":correction}
 
     if uselta:
         analysisOptions["reverse"] = False
@@ -352,6 +369,14 @@ def main(argv):
             outputString.append(processedImg.getTableList())
         outputStringTable = tabulate.tabulate(outputString, headers=headerString) + "\n"
 
+        if len(printParams) > 0:
+            outputParamArray = np.zeros((len(processedImgFiles), len(printParams)), dtype=object)
+
+            for i, par in enumerate(printParams):
+                outputParamArray[:, i] = np.array([getattr(x, par) for x in processedImgFiles], dtype=object)
+
+            print(outputParamArray)
+        
         # Print to terminal if -p flag is passed
         if printToTerminal:
             print(outputStringTable, end="")
@@ -366,7 +391,7 @@ def main(argv):
             of.write(outputStringTable)
 
         of.close()
-
+        
     return
 
 
