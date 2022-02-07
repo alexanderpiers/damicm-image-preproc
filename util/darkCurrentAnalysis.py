@@ -21,14 +21,14 @@ import trackMasking as tk
 
 
 # Defining some default values
-skipOffset = 5
+skipOffset = 1
 imagebw = 50
 fixADU = 1
-yradius = 1
+yradius = 10
 xradius = 10
 minimumRange=8000
 rowOffset = 1
-colOffset = 3
+colOffset = 10
 
 colors = palettable.cmocean.sequential.Thermal_6.mpl_colors
 
@@ -36,7 +36,7 @@ def getDCParametersFromHeader(header):
     
     starttime = datetime.datetime.strptime(header["DATESTART"], "%Y-%m-%dT%H:%M:%S")
     stoptime = datetime.datetime.strptime(header["DATEEND"], "%Y-%m-%dT%H:%M:%S")
-    totaltime = (stoptime - starttime).total_seconds() # in seconds
+    totaltime = (stoptime - starttime).total_seconds() - float(header["EXPOSURE"])# in seconds
     totalPixelBin = int(header["NBINROW"]) * int(header["NBINCOL"])
 
     return totaltime, totalPixelBin
@@ -115,7 +115,7 @@ def computeMeanDarkCurrent(data):
 
 
 
-def plotDarkCurrentRows(fullImage, rowbinswidth=1, reverse=True, mask=False, plotall=False, ax=None, color=colors[0],  readouttime=1, imageBinning=1):
+def plotDarkCurrentRows(fullImage, rowbinswidth=1, reverse=True, mask=False, plotall=False, ax=None, color=colors[0],  readouttime=1, imageBinning=1, gain=-1000):
 
     if not ax:
         fig, ax = plt.subplots(1, 1, figsize=(12, 8))
@@ -129,14 +129,14 @@ def plotDarkCurrentRows(fullImage, rowbinswidth=1, reverse=True, mask=False, plo
     darkcurrent = []
     darkcurrentErr = []
 
-    fit = pgf.computeGausPoissDist(fullImage, aduConversion=-1000, npoisson=20, darkCurrent=-1)
+    fit = pgf.computeGausPoissDist(fullImage, aduConversion=gain, npoisson=20, darkCurrent=-1)
     params = fit.params
 
     if mask:
 
 
-        reversedImage = (fullImage.image - params["offset"].value) * -1
-        imageMask = tk.mask(reversedImage, 4 * params["ADU"].value, yradius, xradius)
+        reversedImage = (fullImage.image - params["offset"].value) *(1, -1)[reverse]
+        imageMask = tk.mask(reversedImage, 5 * params["ADU"].value, yradius, xradius)
         imageMask.astype("int")
 
 
@@ -149,8 +149,7 @@ def plotDarkCurrentRows(fullImage, rowbinswidth=1, reverse=True, mask=False, plo
 
         img = DamicImage.DamicImage(data, bw=imagebw, reverse=reverse, minRange=minimumRange)
 
-        fit = pgf.computeGausPoissDist(img, aduConversion=params["ADU"].value, npoisson=40, darkCurrent=-1)
-
+        fit = pgf.computeGausPoissDist(img, aduConversion=-params["ADU"].value, npoisson=20, darkCurrent=-params["lamb"].value, offset=-1, sigma=-params["sigma"].value)
         rows.append( (i+1) * rowbinswidth )
         darkcurrent.append(fit.params["lamb"].value)
         darkcurrentErr.append(fit.params["lamb"].stderr)
@@ -166,11 +165,12 @@ def plotDarkCurrentRows(fullImage, rowbinswidth=1, reverse=True, mask=False, plo
 
 
 
-
+    print(np.array(darkcurrent))
     darkcurrent = np.array(darkcurrent) / imageBinning
-    darkcurrentErr = np.array(darkcurrentErr) / imageBinning
+    print(darkcurrentErr)
 
     try:
+        darkcurrentErr = np.array(darkcurrentErr) / imageBinning
         ax.errorbar(rows, darkcurrent, yerr=darkcurrentErr, fmt="o", color=color)
     except:
         ax.plot(rows, darkcurrent, "o", color=color)
@@ -179,13 +179,14 @@ def plotDarkCurrentRows(fullImage, rowbinswidth=1, reverse=True, mask=False, plo
 
     flinear = lambda x, *p: p[0]*x + p[1]
     p0 = [(darkcurrent[-1] - darkcurrent[0]) / rows[-1], darkcurrent[0]]
-    popt, pcov = curve_fit(flinear, rows, darkcurrent,  p0=p0)
+    popt, pcov = curve_fit(flinear, rows, darkcurrent,  sigma=darkcurrentErr, p0=p0)
 
     # compute dark current in e- / pix / day
     darkCurrent = popt[0] * nrows / readouttime * 3600 * 24
-    ax.plot(rows, flinear(np.array(rows), *popt), "--r", linewidth=3, label="Dark Current: {:.2f} e- / pix / day".format(darkCurrent))
+    darkCurrentError = np.sqrt(pcov[0,0]) * nrows / readouttime * 3600 * 24
+    ax.plot(rows, flinear(np.array(rows), *popt), "--r", linewidth=3, label="Dark Current: {:.2g} e- / pix / day".format(darkCurrent))
     ax.legend(fontsize=16)
-    print(popt)
+    print("Lambda = {:.2g} +/- {:.1g} e- / pix / day".format(darkCurrent, darkCurrentError))
     return ax
 
 
@@ -235,22 +236,28 @@ if __name__ == '__main__':
         if uselta:
             header, data = readFits.readLTA(datafile)
             header = header[ext]
+            print(header)
             nskips = int(header["NSAMP"])
             totalReadoutTime, totalBinning = getDCParametersFromHeader(header)
             data = readFits.reshapeLTAData(data[ext], int(header["NROW"]), int(header["NCOL"]), nskips)
+            print(totalReadoutTime)
+            print(totalBinning)
         else:
             header, data = readFits.read(datafile)
             data = data[:,:3000,:]
 
 
-        data = data[rowOffset:, colOffset:, :]
         # plot overall spectrum
-        fullImage = DamicImage.DamicImage(np.mean(data[:, :, skipOffset:-1], axis=-1), bw=imagebw, reverse=reverse, minRange=minimumRange)
+        meanImage = np.mean(data[rowOffset:400, colOffset:308, skipOffset:], axis=-1)
+        
+        medianRowValue = np.median(meanImage, axis=-1)
+        meanImage -= np.reshape( np.tile( medianRowValue, meanImage.shape[-1]), meanImage.shape, order="F")
+        fullImage = DamicImage.DamicImage(meanImage, bw=imagebw, reverse=reverse, minRange=minimumRange)
         fig, ax, fit = plotPixelSpectrum(fullImage, reverse=reverse, gain=gain)
 
 
         # row dark current
-        axrow = plotDarkCurrentRows(fullImage, plotall=True, mask=mask, reverse=reverse, rowbinswidth=10, readouttime=totalReadoutTime, imageBinning=totalBinning)
+        axrow = plotDarkCurrentRows(fullImage, plotall=True, mask=mask, reverse=reverse, rowbinswidth=75, readouttime=totalReadoutTime, imageBinning=totalBinning, gain=gain)
 
     else:
         legend = []

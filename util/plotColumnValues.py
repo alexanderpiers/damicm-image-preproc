@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import scipy.stats
 from scipy.optimize import curve_fit
 
-sys.path.append("/home/b059ante/Documents/software/damicm-image-preproc/AutoAnalysis")
+sys.path.append("../AutoAnalysis")
 
 import readFits
 
@@ -20,12 +20,13 @@ if __name__ == '__main__':
     parser.add_argument("-f", "--filename")
     parser.add_argument("-e", "--ext", default=4, type=int)
     parser.add_argument("-x", "--exposure", default=3600, type=float)
+    parser.add_argument("-g", "--gain", default=1000, type=float)
     args = parser.parse_args()
 
     infile = args.filename
     extension = args.ext
     exposure = args.exposure
-
+    gain = args.gain
 
     header, data = readFits.readLTA(infile)
 
@@ -55,10 +56,16 @@ if __name__ == '__main__':
     sigmaInit = 1
     Ninit = np.mean(colValueU[-100:]) - np.mean(colValueU[2000:3000])
     column = np.arange(colValueU.size)
-
-    poptU, _ = curve_fit(fgausCDF, column[1500:], colValueU[1500:]-np.median(colValueU), p0=(Ninit, muInit, sigmaInit))
-    poptL, _ = curve_fit(fgausCDF, column[1500:], colValueL[1500:]-np.median(colValueL), p0=(Ninit, muInit, sigmaInit))
-    ax.plot(column, fgausCDF(column, *poptU), "--k", linewidth=3, alpha=0.5, label="Dark Rate={:.2f} e- / pix / hr".format(-poptU[0] / 1000 / exposure * 3600))
-    ax.plot(column, fgausCDF(column, *poptL), "--r", linewidth=3, alpha=0.5, label="Dark Rate={:.2f} e- / pix / hr".format(-poptL[0] / 1000 / exposure * 3600))
+    print([Ninit, muInit, sigmaInit])
+    try:
+        poptU, covU = curve_fit(fgausCDF, column[1500:], colValueU[1500:]-np.median(colValueU), p0=(Ninit, muInit, sigmaInit))
+        poptL, covL = curve_fit(fgausCDF, column[1500:], colValueL[1500:]-np.median(colValueL), p0=(Ninit, muInit, sigmaInit))
+        ax.plot(column, fgausCDF(column, *poptU), "--k", linewidth=3, alpha=0.5, label="Dark Rate={:.2f} e- / pix / day".format(-poptU[0] / gain / exposure * 3600 * 24))
+        ax.plot(column, fgausCDF(column, *poptL), "--r", linewidth=3, alpha=0.5, label="Dark Rate={:.2f} e- / pix / day".format(-poptL[0] / gain / exposure * 3600 * 24))
+        print(poptU)
+        print(np.sqrt(covU))
+    except Exception as e:
+        print(e)
+        pass
     ax.legend(fontsize=16)
     plt.show()
