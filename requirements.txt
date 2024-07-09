@@ -45,4 +45,4 @@ toml==0.10.0
 traitlets==4.3.3
 uncertainties==3.1.2
 wcwidth==0.1.7
-zipp==0.6.0
+zipp==3.19.1
