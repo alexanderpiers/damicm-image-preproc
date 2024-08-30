@@ -17,7 +17,7 @@ lmfit==1.0.0
 matplotlib==3.1.1
 more-itertools==7.2.0
 numpy==1.17.2
-opencv-python==4.2.0.32
+opencv-python==4.8.1.78
 packaging==19.2
 palettable==3.3.0
 parso==0.5.1
